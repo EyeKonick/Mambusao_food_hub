@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MamFood Hub Development Roadmap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: "Cool Blues and Grays" -->
+    <!-- Application Structure Plan: The application is designed as an interactive dashboard. The structure prioritizes at-a-lglance understanding and user-driven exploration. It starts with high-level KPI cards (progress, sessions completed/remaining) and a visual progress chart. Below this summary, the core of the app is a filterable grid of session cards. This card-based layout is more modular and responsive than a static table. Users can filter by status or priority to drill down into the data. This task-oriented design was chosen to make project tracking efficient and intuitive, allowing developers to quickly assess progress and identify upcoming work without having to parse a linear document. -->
+    <!-- Visualization & Content Choices: 
+        - Overall Progress: Goal=Inform -> Presentation=KPI Card & Donut Chart -> Interaction=Hover tooltip -> Justification=Provides immediate, high-level project status. Chart.js for the dynamic visual.
+        - Session Details: Goal=Organize/Inform -> Presentation=Card Grid -> Interaction=Filtering by Status/Priority, Click to expand details -> Justification=Cards are scannable and mobile-friendly. Filtering allows for focused analysis. Expanding cards provides progressive disclosure of information without cluttering the initial view. Implemented with JS data rendering and event listeners.
+        - Status/Priority: Goal=Organize -> Presentation=Colored Badges -> Interaction=Used as filter controls -> Justification=Visual cues for quick status identification.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .session-card {
+            transition: box-shadow 0.3s ease-in-out;
+        }
+        .session-card-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .session-card-details.open {
+            max-height: 500px;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .filter-btn {
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .filter-btn.active {
+            background-color: #1d4ed8;
+            color: white;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <h1 class="text-3xl font-bold leading-tight text-gray-900">MamFood Hub Development Roadmap</h1>
+            <p class="mt-1 text-md text-gray-500">Project Status Dashboard as of September 20, 2025</p>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- KPI Section -->
+        <section id="kpi-section" class="px-4 sm:px-0">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Project Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Progress Chart -->
+                <div class="kpi-card md:col-span-1 lg:col-span-1 flex flex-col items-center justify-center">
+                    <div class="chart-container">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+                <!-- KPI Cards -->
+                <div class="kpi-card flex flex-col justify-center">
+                    <div class="text-sm font-medium text-gray-500">Overall Progress</div>
+                    <div id="progress-percent" class="mt-1 text-4xl font-semibold text-blue-700">0%</div>
+                </div>
+                <div class="kpi-card flex flex-col justify-center">
+                    <div class="text-sm font-medium text-gray-500">Sessions Completed</div>
+                    <div id="sessions-completed" class="mt-1 text-4xl font-semibold text-green-600">0</div>
+                </div>
+                <div class="kpi-card flex flex-col justify-center">
+                    <div class="text-sm font-medium text-gray-500">Sessions Remaining</div>
+                    <div id="sessions-remaining" class="mt-1 text-4xl font-semibold text-yellow-600">0</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters Section -->
+        <section id="filters-section" class="mt-10 px-4 sm:px-0">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Explore Sessions</h2>
+            <div class="flex flex-wrap gap-4 items-center">
+                <div>
+                    <span class="text-sm font-medium text-gray-600 mr-2">Status:</span>
+                    <div id="status-filters" class="inline-flex rounded-md shadow-sm" role="group">
+                        <button type="button" data-filter="all" class="filter-btn active py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-l-lg border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">All</button>
+                        <button type="button" data-filter="done" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">Done</button>
+                        <button type="button" data-filter="pending" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-r-md border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">Pending</button>
+                    </div>
+                </div>
+                  <div>
+                    <span class="text-sm font-medium text-gray-600 mr-2">Priority:</span>
+                    <div id="priority-filters" class="inline-flex rounded-md shadow-sm" role="group">
+                        <button type="button" data-filter="all" class="filter-btn active py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-l-lg border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">All</button>
+                        <button type="button" data-filter="P1" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">P1</button>
+                        <button type="button" data-filter="P2" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">P2</button>
+                        <button type="button" data-filter="P3" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-r-md border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">P3</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Roadmap Grid -->
+        <section id="roadmap-grid-container" class="mt-6">
+              <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-0">
+                <!-- Session cards will be dynamically inserted here -->
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const roadmapData = [
+                { session: 1, title: 'Project Setup', date: 'September 8-9', priority: 'P1', tasks: '- Initialize Flutter project.<br>- Add Firebase dependencies.<br>- Add other essential packages.<br>- Configure Firebase project for Android.', description: 'Establishes the project\'s foundation and integrates the necessary backend services.', status: 'done' },
+                { session: 2, title: 'Business Owner UI', date: 'September 10', priority: 'P1', tasks: '- Create the "Login" screen.<br>- Design the "Sign Up" screen.<br>- Implement input fields.<br>- Ensure UI matches storyboard.', description: 'Focus on building the front-end for the business owner authentication flow.', status: 'done' },
+                { session: 3, title: 'Business Owner Logic', date: 'September 11', priority: 'P1', tasks: '- Implement `firebase_auth` sign-up logic.<br>- Implement `firebase_auth` login logic.<br>- Set up user session handling.<br>- Connect UI to auth logic.', description: 'The backend integration session for business owners.', status: 'done' },
+                { session: 4, title: 'Unauthenticated User UI', date: 'September 12', priority: 'P1', tasks: '- Design the "Home" screen.<br>- Create a top search bar component.<br>- Build the "Category List" widget.<br>- Design the "Restaurant Card" widget.', description: 'Crucial for the unauthenticated user experience, as it\'s the first screen they\'ll see.', status: 'done' },
+                { session: 5, title: 'Home Screen Data Fetch', date: 'September 13', priority: 'P1', tasks: '- Connect home screen to Firestore.<br>- Fetch data for the category list.<br>- Implement logic to display restaurants.', description: 'Makes the Home screen functional by populating it with real data from Firestore.', status: 'done' },
+                { session: 6, title: 'Restaurant Details UI & Review Form', date: 'September 14-15', priority: 'P1', tasks: '- Design the "Restaurant Details" page.<br>- Implement tab view for "Menu" and "Reviews".<br>- Create the "Leave a Review" modal form.', description: 'Builds the UI for viewing details and preparing for user feedback.', status: 'done' },
+                { session: 7, title: 'Business Owner Dashboard', date: 'September 16-17', priority: 'P2', tasks: '- Implement adding establishments and menus. <br>- **Implement customer review and analytics.**<br>- Implement data cards for metrics.<br>- Design screens for "Add/Manage Menu Items".', description: 'Starts the second half of the project, focusing on business-specific features.', status: 'done' },
+                { session: 8, title: 'User Review Logic', date: 'September 18-19', priority: 'P2', tasks: '- Implement logic to submit reviews to Firestore.<br>- Validate review form fields.<br>- Display submitted reviews on the Details page.', description: 'Adds the final piece to the core user flow, enabling interactions with data.', status: 'done' },
+                { session: 9, title: 'Search Functionality', date: 'September 20', priority: 'P2', tasks: '- Implement a search function that filters restaurants and food items from Firestore.', description: 'Enhances the user experience by making it easier to find specific items.', status: 'done' },
+                { session: 10, title: 'User Favorites (Local)', date: 'September 21-22', priority: 'P2', tasks: '- Implement `shared_preferences` to save favorite restaurants locally.<br>- Create "My Favorites" screen.', description: 'Adds a personalized touch for users without requiring a full account.', status: 'pending' },
+                { session: 11, title: 'Final Touches', date: 'September 23-24', priority: 'P3', tasks: '- Create "Report a Problem" form.<br>- Design "Terms & Privacy" pages.<br>- Polish UI and ensure responsiveness.', description: 'The final stage involves building secondary pages and ensuring a high-quality user experience.', status: 'pending' },
+                { session: 12, title: 'Admin & Promotions', date: 'September 25-26', priority: 'P3', tasks: '- Implement a basic admin panel for moderation.<br>- Add functionality for business owners to create promotions.', description: 'Final features for app management and monetization.', status: 'pending' }
+            ];
+
+            let currentStatusFilter = 'all';
+            let currentPriorityFilter = 'all';
+
+            const grid = document.getElementById('roadmap-grid');
+            const statusFilters = document.getElementById('status-filters');
+            const priorityFilters = document.getElementById('priority-filters');
+            
+            function getPriorityClass(priority) {
+                switch (priority) {
+                    case 'P1': return 'bg-red-100 text-red-800';
+                    case 'P2': return 'bg-yellow-100 text-yellow-800';
+                    case 'P3': return 'bg-blue-100 text-blue-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                }
+            }
+
+            function getStatusClass(status) {
+                return status === 'done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+            }
+            
+            function renderRoadmap() {
+                grid.innerHTML = '';
+                const filteredData = roadmapData.filter(item => {
+                    const statusMatch = currentStatusFilter === 'all' || item.status === currentStatusFilter || (currentStatusFilter === 'pending' && item.status !== 'done');
+                    const priorityMatch = currentPriorityFilter === 'all' || item.priority === currentPriorityFilter;
+                    return statusMatch && priorityMatch;
+                });
+
+                if (filteredData.length === 0) {
+                    grid.innerHTML = `<div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-10 text-gray-500">
+                        <p class="text-lg">No sessions match the current filters.</p>
+                    </div>`;
+                    return;
+                }
+
+                filteredData.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'session-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer';
+                    card.innerHTML = `
+                        <div class="p-6">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-800">Session ${item.session}: ${item.title}</h3>
+                                ${item.status === 'done' ? '<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' : ''}
+                            </div>
+                            <div class="flex items-center gap-2 mt-2">
+                                <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusClass(item.status)}">${item.status.charAt(0).toUpperCase() + item.status.slice(1)}</span>
+                                <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${getPriorityClass(item.priority)}">${item.priority}</span>
+                                <span class="text-xs text-gray-500">${item.date}</span>
+                            </div>
+                            <p class="text-gray-600 mt-4 text-sm">${item.description}</p>
+                        </div>
+                        <div class="session-card-details bg-gray-50 px-6 border-t border-gray-200">
+                               <h4 class="font-semibold text-gray-700 mb-2">Tasks to be Completed:</h4>
+                               <div class="text-sm text-gray-600 space-y-1">${item.tasks}</div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+            
+            function updateKPIs() {
+                const totalSessions = roadmapData.length;
+                const completedSessions = roadmapData.filter(s => s.status === 'done').length;
+                const remainingSessions = totalSessions - completedSessions;
+                const progress = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
+
+                document.getElementById('progress-percent').textContent = `${progress.toFixed(0)}%`;
+                document.getElementById('sessions-completed').textContent = completedSessions;
+                document.getElementById('sessions-remaining').textContent = remainingSessions;
+
+                updateChart(completedSessions, remainingSessions);
+            }
+
+            let progressChart;
+            function updateChart(completed, remaining) {
+                const ctx = document.getElementById('progressChart').getContext('2d');
+                if (progressChart) {
+                    progressChart.destroy();
+                }
+                progressChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completed', 'Remaining'],
+                        datasets: [{
+                            data: [completed, remaining],
+                            backgroundColor: [
+                                'rgba(22, 163, 74, 1)', // green-600
+                                'rgba(229, 231, 235, 1)' // gray-200
+                            ],
+                            borderColor: [
+                                'rgba(255, 255, 255, 1)',
+                                'rgba(255, 255, 255, 1)'
+                            ],
+                            borderWidth: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: true
+                            },
+                            title: {
+                                display: true,
+                                text: 'Project Progress',
+                                font: {
+                                    size: 16,
+                                    weight: '600'
+                                },
+                                color: '#374151'
+                            }
+                        }
+                    }
+                });
+            }
+
+            statusFilters.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    currentStatusFilter = e.target.dataset.filter;
+                    statusFilters.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    renderRoadmap();
+                }
+            });
+
+            priorityFilters.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    currentPriorityFilter = e.target.dataset.filter;
+                    priorityFilters.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    renderRoadmap();
+                }
+            });
+            
+            grid.addEventListener('click', (e) => {
+                const card = e.target.closest('.session-card');
+                if (card) {
+                    const details = card.querySelector('.session-card-details');
+                    details.classList.toggle('open');
+                }
+            });
+
+
+            updateKPIs();
+            renderRoadmap();
+        });
+    </script>
+</body>
+</html>
