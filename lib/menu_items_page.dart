@@ -1,431 +1,438 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/services.dart';
-
-// Data model to hold establishment dropdown data
-class EstablishmentDropdownItem {
-  final String id;
-  final String name;
-
-  EstablishmentDropdownItem({required this.id, required this.name});
-}
+import 'dart:convert';
+import 'config/app_config.dart';
+import 'config/app_theme.dart';
 
 class MenuItemsPage extends StatefulWidget {
   const MenuItemsPage({super.key});
 
   @override
-  _MenuPageState createState() => _MenuPageState();
+  State<MenuItemsPage> createState() => _MenuItemsPageState();
 }
 
-class _MenuPageState extends State<MenuItemsPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _menuNameController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _descriptionController = TextEditingController();
+class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProviderStateMixin {
+  // ==================== FIREBASE INSTANCES ====================
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final _firestore = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  // ==================== TAB CONTROLLER ====================
+  late TabController _tabController;
 
-  // --- Cloudinary Configuration ---
-  static const String CLOUDINARY_CLOUD_NAME = 'dxjamzv0t';
-  static const String CLOUDINARY_UPLOAD_PRESET = 'mamfoodhub_unsigned';
-  // --------------------------------
+  // ==================== STATE VARIABLES ====================
+  String _businessId = '';
+  String _businessName = 'Loading...';
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // State for Image Handling
-  File? _selectedImage;
-  bool _isUploading = false;
-  final ImagePicker _picker = ImagePicker();
-
-  // State for Form Data
-  String? _selectedEstablishmentId;
-  List<EstablishmentDropdownItem> _establishments = [];
-
-  // Refined Color Palette for a Modern Look
-  static const Color primaryGreen = Color(0xFF2E7D32); // Slightly lighter dark green
-  static const Color secondaryGreen = Color(0xFF66BB6A); // Soft, prominent green
-  static const Color accentYellow = Color(0xFFFFC107); // Accent for price/highlight
-  static const Color backgroundColor = Color(0xFFF5F5F5); // Very light background
+  // Category filter
+  String _selectedCategory = 'All';
+  final List<String> _categories = [
+    'All',
+    'Appetizer',
+    'Main Course',
+    'Dessert',
+    'Beverage',
+    'Snack'
+  ];
 
   @override
   void initState() {
     super.initState();
-    _fetchEstablishments();
+    _tabController = TabController(length: 2, vsync: this);
+    _initializePage();
   }
 
   @override
   void dispose() {
-    _menuNameController.dispose();
-    _priceController.dispose();
-    _descriptionController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
-  // --- Image Handling Logic ---
-
-  /// Allows the user to pick an image from the gallery.
-  Future<void> _pickImage(void Function(void Function())? setStateCallback, {required Function(File?) onImageSelected}) async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      // Use the provided setState for local dialog state, or default to widget setState
-      (setStateCallback ?? setState)(() {
-        onImageSelected(File(pickedFile.path));
-      });
-    }
-  }
-
-  /// Uploads the selected image file to Cloudinary.
-  Future<String?> _uploadImageToCloudinary(File imageFile, void Function(void Function())? setStateCallback) async {
-    // Set the uploading flag
-    (setStateCallback ?? setState)(() {
-      _isUploading = true;
+  // ==================== INITIALIZATION ====================
+  Future<void> _initializePage() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
     });
 
-    final url = Uri.parse('https://api.cloudinary.com/v1_1/$CLOUDINARY_CLOUD_NAME/image/upload');
-
     try {
-      var request = http.MultipartRequest('POST', url);
-      request.fields['upload_preset'] = CLOUDINARY_UPLOAD_PRESET;
-      request.fields['folder'] = 'menu_items'; // Dedicated folder for menu images
-
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file', // Required field name for Cloudinary
-          imageFile.path,
-        ),
-      );
-
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(responseBody);
-        final secureUrl = jsonResponse['secure_url'];
-
-        return secureUrl as String;
-      } else {
-        throw Exception('Cloudinary upload failed: ${response.statusCode}. Response: $responseBody');
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('No user logged in');
       }
-    } catch (e) {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Image upload failed: $e')),
-      );
-      print('Cloudinary Error: $e');
-      return null;
-    } finally {
-      // Reset the uploading flag
-      (setStateCallback ?? setState)(() {
-        _isUploading = false;
-      });
-    }
-  }
 
-  // --- Establishment Fetching Logic ---
+      _businessId = user.uid;
 
-  /// Fetches the user's list of establishments to populate the dropdown for linking menu items.
-  void _fetchEstablishments() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      final snapshot = await _firestore.collection('establishments')
-          .where('userId', isEqualTo: userId)
+      // Fetch business data
+      final businessDoc = await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(_businessId)
           .get();
 
-      final establishments = snapshot.docs.map((doc) {
-        return EstablishmentDropdownItem(
-          id: doc.id,
-          name: doc.data()['name'] ?? 'Untitled Establishment',
-        );
-      }).toList();
+      if (!businessDoc.exists) {
+        throw Exception('Business not found');
+      }
 
+      final data = businessDoc.data() as Map<String, dynamic>;
+      
       setState(() {
-        _establishments = establishments;
-        // Pre-select the first establishment if available
-        if (_establishments.isNotEmpty && _selectedEstablishmentId == null) {
-          _selectedEstablishmentId = _establishments.first.id;
-        }
+        _businessName = data['businessName'] ?? 'Unnamed Business';
+        _isLoading = false;
       });
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✓ Menu page initialized for: $_businessName');
+      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load establishments: $e')),
-        );
+      setState(() {
+        _errorMessage = 'Failed to load business data: $e';
+        _isLoading = false;
+      });
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✗ Error initializing menu page: $e');
       }
     }
   }
 
-  // --- Form Submission Logic (Add) ---
+  // ==================== CLOUDINARY IMAGE UPLOAD ====================
+  Future<String?> _uploadImageToCloudinary(
+    File imageFile,
+    Function(String, double) updateProgress,
+  ) async {
+    try {
+      updateProgress('Preparing upload...', 0.1);
 
-  void _addMenuItem() async {
-    if (_formKey.currentState!.validate() && _selectedEstablishmentId != null) {
-      String? finalImageUrl;
+      // Validate file size
+      final fileSize = await imageFile.length();
+      if (!AppConfig.isValidImageSize(fileSize)) {
+        throw Exception(
+          'Image too large. Max size: ${AppConfig.maxImageSizeBytes ~/ (1024 * 1024)}MB'
+        );
+      }
 
-      // 1. Upload image if selected
-      if (_selectedImage != null) {
-        finalImageUrl = await _uploadImageToCloudinary(_selectedImage!, null);
-        if (finalImageUrl == null) {
-          return;
+      // Prepare request
+      final url = Uri.parse(AppConfig.cloudinaryApiUrl);
+      var request = http.MultipartRequest('POST', url);
+
+      // Add required fields
+      request.fields['upload_preset'] = AppConfig.cloudinaryUploadPreset;
+      request.fields['folder'] = AppConfig.cloudinaryMenuItemFolder;
+
+      updateProgress('Uploading image...', 0.3);
+
+      // Add file
+      request.files.add(
+        await http.MultipartFile.fromPath('file', imageFile.path)
+      );
+
+      // Send request
+      final streamedResponse = await request.send();
+      updateProgress('Processing...', 0.7);
+
+      // Get response
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        final imageUrl = responseData['secure_url'] as String;
+        
+        updateProgress('Upload complete!', 1.0);
+        
+        if (AppConfig.enableDebugMode) {
+          debugPrint('✓ Image uploaded: $imageUrl');
         }
+        
+        return imageUrl;
+      } else {
+        throw Exception('Upload failed: ${response.statusCode}');
       }
-
-      // 2. Add data to Firestore in the SUBCOLLECTION
-      try {
-        final userId = _auth.currentUser!.uid;
-
-        // Path: establishments/{establishmentId}/menuItems
-        await _firestore
-            .collection('establishments')
-            .doc(_selectedEstablishmentId)
-            .collection('menuItems') // <-- Now a SUBCOLLECTION
-            .add({
-          'userId': userId, // Retaining userId for Collection Group query
-          'establishmentId': _selectedEstablishmentId,
-          'name': _menuNameController.text,
-          'price': double.tryParse(_priceController.text) ?? 0.0,
-          'description': _descriptionController.text,
-          'imageUrl': finalImageUrl, // Store the uploaded URL
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Menu item added successfully to establishment!')),
-        );
-
-        // 3. Clear form and state
-        _menuNameController.clear();
-        _priceController.clear();
-        _descriptionController.clear();
-        setState(() {
-          _selectedImage = null; // Clear selected image file
-        });
-      } catch (e) {
-        print('!!! FIREBASE WRITE ERROR: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add menu item. Check console for details: $e')),
-        );
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✗ Cloudinary upload error: $e');
       }
-    } else if (_selectedEstablishmentId == null && _establishments.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select an establishment.')),
-        );
-    } else if (_establishments.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please create an establishment first in the Establishments tab.')),
-        );
+      return null;
     }
   }
 
-  // --- Deletion Logic ---
+  // ==================== ADD MENU ITEM DIALOG ====================
+  Future<void> _showAddMenuItemDialog() async {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final priceController = TextEditingController();
+    String selectedCategory = 'Main Course';
+    File? selectedImage;
+    bool isUploading = false;
+    String uploadProgress = '';
+    double uploadPercentage = 0.0;
 
-  /// Handles the deletion of a menu item document from Firestore.
-  /// Now takes the full DocumentSnapshot to use its reference.
-  void _deleteMenuItem(DocumentSnapshot item) async {
-    final bool confirmDelete = await showDialog(
+    await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Deletion', style: TextStyle(color: primaryGreen)),
-        content: const Text('Are you sure you want to delete this menu item permanently? This action cannot be undone.'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel', style: TextStyle(color: primaryGreen)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    ) ?? false;
-
-    if (confirmDelete) {
-      try {
-        // Use the document's direct reference to delete it (full path is known)
-        await item.reference.delete();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Menu item deleted successfully!')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete menu item: $e')),
-        );
-      }
-    }
-  }
-
-  // --- Editing Logic ---
-
-  Future<void> _editMenuItem(DocumentSnapshot menuItemDoc) async {
-    // Extract existing data
-    final data = menuItemDoc.data() as Map<String, dynamic>? ?? {};
-
-    // Controllers for dialog fields
-    final nameController = TextEditingController(text: data['name'] as String? ?? '');
-    final descriptionController = TextEditingController(text: data['description'] as String? ?? '');
-    final priceController = TextEditingController(text: (data['price'] as num? ?? 0.0).toString());
-
-    // State for image handling within the dialog
-    File? dialogSelectedImage;
-    String? dialogImageUrl = data['imageUrl'] as String?;
-    String? dialogEstablishmentId = data['establishmentId'] as String?;
-    bool dialogIsUploading = false;
-    final dialogFormKey = GlobalKey<FormState>();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (context, setStateCallback) {
+          builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Edit Menu Item', style: TextStyle(color: primaryGreen)),
-              content: Form(
-                key: dialogFormKey,
-                child: SingleChildScrollView(
+              title: Row(
+                children: [
+                  Icon(Icons.add_circle, color: AppTheme.primaryGreen),
+                  const SizedBox(width: 8),
+                  const Text('Add Menu Item'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Establishment Selector
-                      DropdownButtonFormField<String>(
-                        value: dialogEstablishmentId,
-                        decoration: InputDecoration(
-                          labelText: 'Select Establishment',
-                          labelStyle: TextStyle(color: primaryGreen.withOpacity(0.8), fontWeight: FontWeight.w500),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                      // Image Picker
+                      GestureDetector(
+                        onTap: isUploading
+                            ? null
+                            : () async {
+                                final picker = ImagePicker();
+                                final pickedFile = await picker.pickImage(
+                                  source: ImageSource.gallery,
+                                  maxWidth: 1024,
+                                  maxHeight: 1024,
+                                );
+                                if (pickedFile != null) {
+                                  setDialogState(() {
+                                    selectedImage = File(pickedFile.path);
+                                  });
+                                }
+                              },
+                        child: Container(
+                          height: 150,
+                          width: double.infinity, 
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppTheme.primaryGreen.withOpacity(0.3),
+                            ),
+                          ),
+                          child: selectedImage != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.file(
+                                    selectedImage!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate,
+                                      size: 48,
+                                      color: AppTheme.primaryGreen.withOpacity(0.5),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Tap to add image',
+                                      style: AppTheme.bodyMedium.copyWith(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
-                        items: _establishments.map((EstablishmentDropdownItem item) {
-                          return DropdownMenuItem<String>(
-                            value: item.id,
-                            child: Text(item.name),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setStateCallback(() {
-                            dialogEstablishmentId = newValue;
-                          });
-                        },
-                        validator: (value) => value == null ? 'Please select the establishment' : null,
                       ),
                       const SizedBox(height: 16),
 
-                      // Item Name Field
-                      _buildTextFormField(
+                      // Name Field
+                      TextFormField(
                         controller: nameController,
-                        label: 'Item Name',
-                        validator: (value) => value!.isEmpty ? 'Enter name' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Item Name',
+                          hintText: 'e.g., Chicken Adobo',
+                          prefixIcon: Icon(Icons.restaurant_menu),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter item name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Description Field
+                      TextFormField(
+                        controller: descriptionController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          hintText: 'Describe the dish...',
+                          prefixIcon: Icon(Icons.description),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter description';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Category Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                        items: _categories
+                            .where((cat) => cat != 'All')
+                            .map((category) {
+                          return DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedCategory = value!;
+                          });
+                        },
                       ),
                       const SizedBox(height: 16),
 
                       // Price Field
-                      _buildTextFormField(
+                      TextFormField(
                         controller: priceController,
-                        label: 'Price',
                         keyboardType: TextInputType.number,
-                        validator: (value) => value!.isEmpty || double.tryParse(value) == null ? 'Enter valid price' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Price',
+                          hintText: '0.00',
+                          prefixIcon: Icon(Icons.attach_money),
+                          prefixText: '₱ ',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter price';
+                          }
+                          final price = double.tryParse(value);
+                          if (price == null || price <= 0) {
+                            return 'Please enter valid price';
+                          }
+                          return null;
+                        },
                       ),
-                      const SizedBox(height: 16),
-                      
-                      // Description Field
-                      _buildTextFormField(
-                        controller: descriptionController,
-                        label: 'Description',
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 20),
 
-                      // Image Picker in Dialog
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Item Image',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)
+                      // Upload Progress
+                      if (isUploading) ...[
+                        const SizedBox(height: 16),
+                        LinearProgressIndicator(
+                          value: uploadPercentage,
+                          backgroundColor: AppTheme.surfaceColor,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryGreen,
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              // Preview/Placeholder
-                              Container(
-                                width: 60, height: 60,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: backgroundColor,
-                                ),
-                                child: dialogSelectedImage != null
-                                    ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(dialogSelectedImage!, fit: BoxFit.cover))
-                                    : (dialogImageUrl != null && dialogImageUrl!.isNotEmpty
-                                        ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(dialogImageUrl!, fit: BoxFit.cover))
-                                        : Icon(Icons.photo_library, color: primaryGreen.withOpacity(0.6), size: 30)),
-                              ),
-                              const SizedBox(width: 10),
-
-                              // Pick/Change Button
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: dialogIsUploading ? null : () => _pickImage(setStateCallback, onImageSelected: (file) {
-                                    setStateCallback(() {
-                                      dialogSelectedImage = file;
-                                      // Clear network URL if a new file is picked
-                                      if (file != null) dialogImageUrl = null;
-                                    });
-                                  }),
-                                  icon: const Icon(Icons.edit, size: 20),
-                                  label: Text(dialogImageUrl != null || dialogSelectedImage != null ? 'Change' : 'Add Photo'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: secondaryGreen,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-
-                              // Remove Button
-                              if (dialogImageUrl != null || dialogSelectedImage != null)
-                                IconButton(
-                                  icon: const Icon(Icons.close, color: Colors.red),
-                                  onPressed: () {
-                                    setStateCallback(() {
-                                      dialogSelectedImage = null;
-                                      dialogImageUrl = null; // Remove the existing image URL
-                                    });
-                                  },
-                                  tooltip: 'Remove Image',
-                                ),
-                            ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          uploadProgress,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: AppTheme.textSecondary,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel', style: TextStyle(color: primaryGreen)),
+                  onPressed: isUploading
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: dialogIsUploading ? null : () {
-                    if (dialogFormKey.currentState!.validate()) {
-                      Navigator.pop(context, true);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, foregroundColor: Colors.white),
-                  child: dialogIsUploading 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Save'),
+                  onPressed: isUploading
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            setDialogState(() {
+                              isUploading = true;
+                            });
+
+                            try {
+                              String? imageUrl;
+
+                              // Upload image if selected
+                              if (selectedImage != null) {
+                                imageUrl = await _uploadImageToCloudinary(
+                                  selectedImage!,
+                                  (message, progress) {
+                                    setDialogState(() {
+                                      uploadProgress = message;
+                                      uploadPercentage = progress;
+                                    });
+                                  },
+                                );
+
+                                if (imageUrl == null) {
+                                  throw Exception('Failed to upload image');
+                                }
+                              }
+
+                              // Add menu item to Firestore
+                              await _firestore
+                                  .collection(AppConfig.businessesCollection)
+                                  .doc(_businessId)
+                                  .collection(AppConfig.menuItemsSubcollection)
+                                  .add({
+                                'name': nameController.text.trim(),
+                                'description': descriptionController.text.trim(),
+                                'price': double.parse(priceController.text),
+                                'category': selectedCategory,
+                                'imageUrl': imageUrl,
+                                'isAvailable': true,
+                                'createdAt': FieldValue.serverTimestamp(),
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
+
+                              if (!mounted) return;
+                              Navigator.pop(dialogContext);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${nameController.text} added successfully!'
+                                  ),
+                                  backgroundColor: AppTheme.successGreen,
+                                ),
+                              );
+                            } catch (e) {
+                              if (AppConfig.enableDebugMode) {
+                                debugPrint('✗ Error adding menu item: $e');
+                              }
+
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: AppTheme.errorRed,
+                                ),
+                              );
+
+                              setDialogState(() {
+                                isUploading = false;
+                              });
+                            }
+                          }
+                        },
+                  child: const Text('Add Item'),
                 ),
               ],
             );
@@ -433,338 +440,837 @@ class _MenuPageState extends State<MenuItemsPage> {
         );
       },
     );
+  }
+
+  // ==================== EDIT MENU ITEM DIALOG ====================
+  Future<void> _showEditMenuItemDialog(DocumentSnapshot menuItem) async {
+    final data = menuItem.data() as Map<String, dynamic>;
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: data['name']);
+    final descriptionController = TextEditingController(text: data['description']);
+    final priceController = TextEditingController(text: data['price'].toString());
+    String selectedCategory = data['category'] ?? 'Main Course';
+    File? selectedImage;
+    String? existingImageUrl = data['imageUrl'];
+    bool isUploading = false;
+    String uploadProgress = '';
+    double uploadPercentage = 0.0;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.edit, color: AppTheme.primaryGreen),
+                  const SizedBox(width: 8),
+                  const Text('Edit Menu Item'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Image Picker
+                      GestureDetector(
+                        onTap: isUploading
+                            ? null
+                            : () async {
+                                final picker = ImagePicker();
+                                final pickedFile = await picker.pickImage(
+                                  source: ImageSource.gallery,
+                                  maxWidth: 1024,
+                                  maxHeight: 1024,
+                                );
+                                if (pickedFile != null) {
+                                  setDialogState(() {
+                                    selectedImage = File(pickedFile.path);
+                                  });
+                                }
+                              },
+                        child: Container(
+                          height: 150,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: AppTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppTheme.primaryGreen.withOpacity(0.3),
+                            ),
+                          ),
+                          child: selectedImage != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.file(
+                                    selectedImage!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : existingImageUrl != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        existingImageUrl!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_photo_alternate,
+                                          size: 48,
+                                          color: AppTheme.primaryGreen.withOpacity(0.5),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Tap to change image',
+                                          style: AppTheme.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Name Field
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Item Name',
+                          prefixIcon: Icon(Icons.restaurant_menu),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter item name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Description Field
+                      TextFormField(
+                        controller: descriptionController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          prefixIcon: Icon(Icons.description),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter description';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Category Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                        items: _categories
+                            .where((cat) => cat != 'All')
+                            .map((category) {
+                          return DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedCategory = value!;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Price Field
+                      TextFormField(
+                        controller: priceController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Price',
+                          prefixIcon: Icon(Icons.attach_money),
+                          prefixText: '₱ ',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter price';
+                          }
+                          final price = double.tryParse(value);
+                          if (price == null || price <= 0) {
+                            return 'Please enter valid price';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      // Upload Progress
+                      if (isUploading) ...[
+                        const SizedBox(height: 16),
+                        LinearProgressIndicator(
+                          value: uploadPercentage,
+                          backgroundColor: AppTheme.surfaceColor,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryGreen,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          uploadProgress,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isUploading
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isUploading
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            setDialogState(() {
+                              isUploading = true;
+                            });
+
+                            try {
+                              String? imageUrl = existingImageUrl;
+
+                              // Upload new image if selected
+                              if (selectedImage != null) {
+                                imageUrl = await _uploadImageToCloudinary(
+                                  selectedImage!,
+                                  (message, progress) {
+                                    setDialogState(() {
+                                      uploadProgress = message;
+                                      uploadPercentage = progress;
+                                    });
+                                  },
+                                );
+
+                                if (imageUrl == null) {
+                                  throw Exception('Failed to upload image');
+                                }
+                              }
+
+                              // Update menu item in Firestore
+                              await _firestore
+                                  .collection(AppConfig.businessesCollection)
+                                  .doc(_businessId)
+                                  .collection(AppConfig.menuItemsSubcollection)
+                                  .doc(menuItem.id)
+                                  .update({
+                                'name': nameController.text.trim(),
+                                'description': descriptionController.text.trim(),
+                                'price': double.parse(priceController.text),
+                                'category': selectedCategory,
+                                'imageUrl': imageUrl,
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
+
+                              if (!mounted) return;
+                              Navigator.pop(dialogContext);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Menu item updated!'),
+                                  backgroundColor: AppTheme.successGreen,
+                                ),
+                              );
+                            } catch (e) {
+                              if (AppConfig.enableDebugMode) {
+                                debugPrint('✗ Error updating menu item: $e');
+                              }
+
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: AppTheme.errorRed,
+                                ),
+                              );
+
+                              setDialogState(() {
+                                isUploading = false;
+                              });
+                            }
+                          }
+                        },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==================== DELETE MENU ITEM ====================
+  Future<void> _deleteMenuItem(DocumentSnapshot menuItem) async {
+    final data = menuItem.data() as Map<String, dynamic>;
+    final itemName = data['name'] ?? 'this item';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Menu Item'),
+          content: Text('Are you sure you want to delete "$itemName"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.errorRed,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
 
     if (confirmed == true) {
       try {
-        // 1. Re-upload image if a new one was selected in the dialog
-        if (dialogSelectedImage != null) {
-          // Use the StatefulWidget's setState for the main progress indicator
-          dialogImageUrl = await _uploadImageToCloudinary(dialogSelectedImage!, null);
-          if (dialogImageUrl == null) {
-            // Upload failed, stop update.
-            return;
-          }
-        }
-        
-        // Check if the establishment changed
-        if (dialogEstablishmentId != data['establishmentId']) {
-          // 1. Delete the old document in the old subcollection
-          await menuItemDoc.reference.delete();
+        await _firestore
+            .collection(AppConfig.businessesCollection)
+            .doc(_businessId)
+            .collection(AppConfig.menuItemsSubcollection)
+            .doc(menuItem.id)
+            .delete();
 
-          // 2. Create a new document in the new establishment's subcollection
-          final userId = _auth.currentUser!.uid;
-          await _firestore
-              .collection('establishments')
-              .doc(dialogEstablishmentId)
-              .collection('menuItems')
-              .add({
-                // Copy necessary fields from original/updated data
-                'userId': userId,
-                'establishmentId': dialogEstablishmentId, // The new ID
-                'name': nameController.text,
-                'description': descriptionController.text,
-                'price': double.parse(priceController.text),
-                'imageUrl': dialogImageUrl,
-                'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(), // Preserve timestamp if available
-              });
-              
-        } else {
-           // 2. Update data in the current subcollection location using the document's reference
-            await menuItemDoc.reference.update({
-              'establishmentId': dialogEstablishmentId,
-              'name': nameController.text,
-              'description': descriptionController.text,
-              'price': double.parse(priceController.text),
-              'imageUrl': dialogImageUrl, // Update with new/existing/null URL
-            });
-        }
-        
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Menu item updated successfully!')),
+          SnackBar(
+            content: Text('"$itemName" deleted successfully'),
+            backgroundColor: AppTheme.successGreen,
+          ),
         );
       } catch (e) {
+        if (AppConfig.enableDebugMode) {
+          debugPrint('✗ Error deleting menu item: $e');
+        }
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update menu item: $e')),
+          SnackBar(
+            content: Text('Error deleting item: $e'),
+            backgroundColor: AppTheme.errorRed,
+          ),
         );
       }
     }
   }
 
+  // ==================== TOGGLE AVAILABILITY ====================
+  Future<void> _toggleAvailability(DocumentSnapshot menuItem) async {
+    final data = menuItem.data() as Map<String, dynamic>;
+    final currentStatus = data['isAvailable'] ?? true;
 
-  // --- UI Helper Widgets (Refined for Modern Look) ---
+    try {
+      await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(_businessId)
+          .collection(AppConfig.menuItemsSubcollection)
+          .doc(menuItem.id)
+          .update({
+        'isAvailable': !currentStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
-  Widget _buildImagePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Menu Item Image (Optional)',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            currentStatus
+                ? 'Item marked as unavailable'
+                : 'Item marked as available',
+          ),
+          backgroundColor: AppTheme.successGreen,
         ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // 1. Preview/Placeholder - Larger, prominent placeholder
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15.0),
-                border: Border.all(color: primaryGreen.withOpacity(0.3), width: 2),
-                color: backgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: _selectedImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(13.0),
-                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                    )
-                  : Icon(Icons.restaurant_menu_rounded, color: primaryGreen.withOpacity(0.6), size: 40),
-            ),
-            const SizedBox(width: 16),
+      );
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✗ Error toggling availability: $e');
+      }
 
-            // 2. Pick/Change Button
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _isUploading ? null : () => _pickImage(null, onImageSelected: (file) {
-                  setState(() {
-                    _selectedImage = file;
-                  });
-                }),
-                icon: Icon(_selectedImage == null ? Icons.add_photo_alternate_rounded : Icons.photo_library_rounded, size: 20),
-                label: Text(_selectedImage == null ? 'Select Image' : 'Change Photo'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: secondaryGreen,
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-
-            // 3. Clear/Remove Button (Styled as a small action button)
-            if (_selectedImage != null && !_isUploading)
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0),
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedImage = null;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.close_rounded, color: Colors.red, size: 20),
-                  ),
-                ),
-              ),
-
-            // 4. Loading Indicator
-            if (_isUploading)
-              const Padding(
-                padding: EdgeInsets.only(left: 16.0),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: primaryGreen, strokeWidth: 3),
-                ),
-              ),
-          ],
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: AppTheme.errorRed,
         ),
-        if (_selectedImage != null && !_isUploading)
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0, left: 8.0),
-            child: Text(
-              '${_selectedImage!.path.split('/').last} selected.',
-              style: TextStyle(fontSize: 12, color: primaryGreen.withOpacity(0.8)),
-            ),
-          )
-      ],
-    );
+      );
+    }
   }
 
-  Widget _buildTextFormField({
-    required TextEditingController controller,
-    required String label,
-    int maxLines = 1,
-    String? Function(String?)? validator,
-    TextInputType? keyboardType,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      // Input formatter for price field to allow only numbers and up to 2 decimals
-      inputFormatters: keyboardType == TextInputType.number ? [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-      ] : null,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: primaryGreen.withOpacity(0.8), fontWeight: FontWeight.w500),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none, // Hide border when not focused for a cleaner look
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: secondaryGreen, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-      ),
-      maxLines: maxLines,
-      validator: validator,
-    );
-  }
+  // ==================== BUILD MENU ITEM CARD ====================
+  Widget _buildMenuItemCard(DocumentSnapshot menuItem) {
+    final data = menuItem.data() as Map<String, dynamic>;
+    final name = data['name'] ?? 'Unnamed Item';
+    final description = data['description'] ?? 'No description';
+    final price = data['price'] ?? 0.0;
+    final category = data['category'] ?? 'Uncategorized';
+    final imageUrl = data['imageUrl'];
+    final isAvailable = data['isAvailable'] ?? true;
 
-  /// Custom card widget for displaying a single menu item in the list.
-  Widget _buildMenuItemCard({
-    required DocumentSnapshot item,
-    required String establishmentName,
-  }) {
-    // Ensure data is correctly interpreted as a Map<String, dynamic>
-    final data = item.data() as Map<String, dynamic>? ?? {};
-    final imageUrl = data['imageUrl'] as String?;
-    final name = data['name'] as String? ?? 'N/A';
-    final price = (data['price'] as num? ?? 0.0).toDouble();
-    final description = data['description'] as String? ?? 'No description provided.';
-
-    // Modern Card Design with more visual hierarchy
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 6, // Higher elevation for a modern 'pop'
-      shadowColor: primaryGreen.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image / Placeholder (80x80)
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.0),
-                color: secondaryGreen.withOpacity(0.1),
-              ),
-              child: imageUrl != null && imageUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12.0),
-                      child: Image.network(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: InkWell(
+        onTap: () => _showEditMenuItemDialog(menuItem),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: imageUrl != null
+                    ? Image.network(
                         imageUrl,
+                        width: 80,
+                        height: 80,
                         fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: primaryGreen,
-                              strokeWidth: 2,
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
-                                  : null,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 80,
+                            height: 80,
+                            color: AppTheme.surfaceColor,
+                            child: Icon(
+                              Icons.restaurant,
+                              color: AppTheme.primaryGreen,
                             ),
                           );
                         },
-                        errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image_rounded, color: Colors.red.withOpacity(0.7), size: 30),
+                      )
+                    : Container(
+                        width: 80,
+                        height: 80,
+                        color: AppTheme.surfaceColor,
+                        child: Icon(
+                          Icons.restaurant,
+                          color: AppTheme.primaryGreen,
+                        ),
                       ),
-                    )
-                  : Icon(Icons.fastfood_rounded, color: primaryGreen.withOpacity(0.5), size: 40),
-            ),
-
-            const SizedBox(width: 16),
-
-            // Item Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryGreen
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '📍 $establishmentName',
-                    style: TextStyle(fontSize: 12, color: primaryGreen.withOpacity(0.8), fontStyle: FontStyle.italic),
-                  ),
-                ],
               ),
-            ),
+              const SizedBox(width: 12),
 
-            // Price and Action Column
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: accentYellow,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '₱${price.toStringAsFixed(2)}', // Changed to Peso sign
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+              // Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Edit Button
-                    IconButton(
-                      icon: const Icon(Icons.edit_note_rounded, color: primaryGreen, size: 24),
-                      onPressed: () => _editMenuItem(item),
-                      tooltip: 'Edit Menu Item',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: AppTheme.titleMedium.copyWith(
+                              decoration: isAvailable
+                                  ? null
+                                  : TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ),
+                        if (!isAvailable)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.errorRed.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'UNAVAILABLE',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.errorRed,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    // Delete Button
-                    IconButton(
-                      icon: const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 24),
-                      onPressed: () => _deleteMenuItem(item), // <-- Pass the DocumentSnapshot
-                      tooltip: 'Delete Menu Item',
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '₱${price.toStringAsFixed(2)}',
+                              style: AppTheme.titleMedium.copyWith(
+                                color: AppTheme.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              category,
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                isAvailable
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                color: isAvailable
+                                    ? AppTheme.successGreen
+                                    : AppTheme.textSecondary,
+                              ),
+                              onPressed: () => _toggleAvailability(menuItem),
+                              tooltip: isAvailable
+                                  ? 'Mark as unavailable'
+                                  : 'Mark as available',
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.edit, color: AppTheme.primaryGreen),
+                              onPressed: () => _showEditMenuItemDialog(menuItem),
+                              tooltip: 'Edit',
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete, color: AppTheme.errorRed),
+                              onPressed: () => _deleteMenuItem(menuItem),
+                              tooltip: 'Delete',
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== BUILD MENU LIST ====================
+  Widget _buildMenuList(String category) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(_businessId)
+          .collection(AppConfig.menuItemsSubcollection)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: AppTheme.errorRed),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading menu items',
+                  style: AppTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  snapshot.error.toString(),
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ],
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: AppTheme.primaryGreen),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading menu items...',
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Filter items by category
+        var items = snapshot.data!.docs;
+        if (category != 'All') {
+          items = items.where((item) {
+            final data = item.data() as Map<String, dynamic>;
+            return data['category'] == category;
+          }).toList();
+        }
+
+        if (items.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.restaurant_menu,
+                  size: 64,
+                  color: AppTheme.primaryGreen.withOpacity(0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  category == 'All'
+                      ? 'No menu items yet'
+                      : 'No items in $category',
+                  style: AppTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tap the + button to add your first item',
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            return _buildMenuItemCard(items[index]);
+          },
+        );
+      },
+    );
+  }
+
+  // ==================== BUILD STATISTICS TAB ====================
+  Widget _buildStatisticsTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(_businessId)
+          .collection(AppConfig.menuItemsSubcollection)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+          );
+        }
+
+        final items = snapshot.data!.docs;
+        final totalItems = items.length;
+        final availableItems = items.where((item) {
+          final data = item.data() as Map<String, dynamic>;
+          return data['isAvailable'] ?? true;
+        }).length;
+
+        // Calculate average price
+        double totalPrice = 0;
+        for (var item in items) {
+          final data = item.data() as Map<String, dynamic>;
+          totalPrice += (data['price'] ?? 0.0);
+        }
+        final averagePrice = totalItems > 0 ? totalPrice / totalItems : 0.0;
+
+        // Count by category
+        final Map<String, int> categoryCount = {};
+        for (var item in items) {
+          final data = item.data() as Map<String, dynamic>;
+          final category = data['category'] ?? 'Uncategorized';
+          categoryCount[category] = (categoryCount[category] ?? 0) + 1;
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            // Trigger a rebuild
+            setState(() {});
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Overview Cards
+                Text(
+                  'Menu Overview',
+                  style: AppTheme.headingMedium,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        'Total Items',
+                        totalItems.toString(),
+                        Icons.restaurant_menu,
+                        AppTheme.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Available',
+                        availableItems.toString(),
+                        Icons.check_circle,
+                        AppTheme.successGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        'Unavailable',
+                        (totalItems - availableItems).toString(),
+                        Icons.cancel,
+                        AppTheme.errorRed,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Avg. Price',
+                        '₱${averagePrice.toStringAsFixed(2)}',
+                        Icons.attach_money,
+                        AppTheme.accentYellow,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 32),
+
+                // Category Breakdown
+                Text(
+                  'Items by Category',
+                  style: AppTheme.headingMedium,
+                ),
+                const SizedBox(height: 16),
+                if (categoryCount.isEmpty)
+                  Center(
+                    child: Text(
+                      'No items to display',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  )
+                else
+                  ...categoryCount.entries.map((entry) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
+                          child: Icon(
+                            _getCategoryIcon(entry.key),
+                            color: AppTheme.primaryGreen,
+                          ),
+                        ),
+                        title: Text(entry.key),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGreen,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            entry.value.toString(),
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==================== BUILD STAT CARD ====================
+  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: AppTheme.headingMedium.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: AppTheme.bodySmall.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -772,210 +1278,168 @@ class _MenuPageState extends State<MenuItemsPage> {
     );
   }
 
-  // --- Main Build Method ---
+  // ==================== GET CATEGORY ICON ====================
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Appetizer':
+        return Icons.soup_kitchen;
+      case 'Main Course':
+        return Icons.dinner_dining;
+      case 'Dessert':
+        return Icons.cake;
+      case 'Beverage':
+        return Icons.local_cafe;
+      case 'Snack':
+        return Icons.fastfood;
+      default:
+        return Icons.restaurant;
+    }
+  }
 
+  // ==================== BUILD METHOD ====================
   @override
   Widget build(BuildContext context) {
-    // Check if user is logged in
-    final currentUser = _auth.currentUser;
-    if (currentUser == null) {
-      return const Scaffold(
-        backgroundColor: backgroundColor,
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Menu Items'),
+        ),
         body: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32.0),
-            child: Text(
-              'You must be signed in to manage menu items.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, color: primaryGreen),
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppTheme.primaryGreen),
+              const SizedBox(height: 16),
+              Text(
+                'Loading menu...',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Menu Items'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: AppTheme.errorRed),
+              const SizedBox(height: 16),
+              Text(
+                'Error',
+                style: AppTheme.headingMedium,
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  _errorMessage!,
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _initializePage,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
           ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Manage Menu Items'),
-        backgroundColor: primaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            // --- Add Menu Item Form (Modern Card) ---
-            Card(
-              elevation: 8,
-              shadowColor: primaryGreen.withOpacity(0.2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Add a New Menu Item',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryGreen),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Establishment Selector
-                      DropdownButtonFormField<String>(
-                        value: _selectedEstablishmentId,
-                        decoration: InputDecoration(
-                          labelText: _establishments.isEmpty ? 'No Establishments Found' : 'Select Establishment',
-                          labelStyle: TextStyle(color: primaryGreen.withOpacity(0.8), fontWeight: FontWeight.w500),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300, width: 1)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: secondaryGreen, width: 2)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                        ),
-                        items: _establishments.map((EstablishmentDropdownItem item) {
-                          return DropdownMenuItem<String>(
-                            value: item.id,
-                            child: Text(item.name),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedEstablishmentId = newValue;
-                          });
-                        },
-                        validator: (value) => value == null ? 'Please select the parent establishment' : null,
-                        hint: const Text('Select Establishment'),
-                        disabledHint: const Text('Loading establishments...'),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildTextFormField(
-                        controller: _menuNameController,
-                        label: 'Menu Item Name',
-                        validator: (value) => value!.isEmpty ? 'Please enter the item name' : null,
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildTextFormField(
-                        controller: _priceController,
-                        label: 'Price (e.g., ₱9.99)', // Changed label text to use Peso sign
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value!.isEmpty) return 'Please enter a price';
-                          if (double.tryParse(value) == null) return 'Invalid price format';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildTextFormField(
-                        controller: _descriptionController,
-                        label: 'Description',
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Image Picker Widget
-                      _buildImagePicker(),
-
-                      const SizedBox(height: 30),
-
-                      ElevatedButton(
-                        onPressed: _isUploading || _establishments.isEmpty ? null : _addMenuItem,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: 6,
-                          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        child: _isUploading
-                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text(_establishments.isEmpty ? 'No Establishments to Add To' : 'Add Menu Item'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Menu Items'),
             Text(
-              'Current Menu Items',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: primaryGreen),
-              textAlign: TextAlign.center,
-            ),
-            const Divider(color: secondaryGreen, thickness: 2, height: 20),
-            const SizedBox(height: 10),
-
-            // --- Menu Items List (Using Custom Cards) ---
-            StreamBuilder<QuerySnapshot>(
-              // *** COLLECTION GROUP QUERY: Fetches all documents named 'menuItems'
-              //     across the entire database, then filters by the current user's ID.
-              // NOTE: This requires a Firestore Collection Group Index for 'menuItems' 
-              //       queried on 'userId' to be created in your Firebase console.
-              stream: _auth.currentUser != null
-                  ? _firestore.collectionGroup('menuItems')
-                      .where('userId', isEqualTo: _auth.currentUser!.uid)
-                      .snapshots()
-                  : const Stream.empty(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: Padding(
-                    padding: EdgeInsets.only(top: 30.0),
-                    child: CircularProgressIndicator(color: primaryGreen),
-                  ));
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error loading items: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 30.0),
-                      child: Text('You haven\'t added any menu items yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                    )
-                  );
-                }
-
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final item = snapshot.data!.docs[index];
-                    // Explicitly cast data for safety
-                    final data = item.data() as Map<String, dynamic>? ?? {};
-
-                    // Try to find the establishment name using the establishmentId stored in the item
-                    final establishmentName = _establishments.firstWhere(
-                      (est) => est.id == data['establishmentId'],
-                      orElse: () => EstablishmentDropdownItem(id: '', name: 'Unknown Establishment'),
-                    ).name;
-
-                    return _buildMenuItemCard(
-                      item: item,
-                      establishmentName: establishmentName,
-                    );
-                  },
-                );
-              },
+              _businessName,
+              style: AppTheme.bodySmall.copyWith(
+                color: Colors.white.withOpacity(0.9),
+              ),
             ),
           ],
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
+          tabs: const [
+            Tab(text: 'Menu', icon: Icon(Icons.restaurant_menu)),
+            Tab(text: 'Statistics', icon: Icon(Icons.bar_chart)),
+          ],
+        ),
       ),
+      body: Column(
+        children: [
+          // Category Filter (only show on Menu tab)
+          if (_tabController.index == 0)
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final category = _categories[index];
+                  final isSelected = category == _selectedCategory;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(category),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedCategory = category;
+                        });
+                      },
+                      backgroundColor: AppTheme.surfaceColor,
+                      selectedColor: AppTheme.primaryGreen,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : AppTheme.textPrimary,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+          // Tab Content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildMenuList(_selectedCategory),
+                _buildStatisticsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: _tabController.index == 0
+          ? FloatingActionButton.extended(
+              onPressed: _showAddMenuItemDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Item'),
+              backgroundColor: AppTheme.primaryGreen,
+            )
+          : null,
     );
   }
 }

@@ -3,301 +3,696 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MamFood Hub Development Roadmap</title>
+    <title>MamFood Hub - Development Roadmap</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: "Cool Blues and Grays" -->
-    <!-- Application Structure Plan: The application is designed as an interactive dashboard. The structure prioritizes at-a-lglance understanding and user-driven exploration. It starts with high-level KPI cards (progress, sessions completed/remaining) and a visual progress chart. Below this summary, the core of the app is a filterable grid of session cards. This card-based layout is more modular and responsive than a static table. Users can filter by status or priority to drill down into the data. This task-oriented design was chosen to make project tracking efficient and intuitive, allowing developers to quickly assess progress and identify upcoming work without having to parse a linear document. -->
-    <!-- Visualization & Content Choices: 
-        - Overall Progress: Goal=Inform -> Presentation=KPI Card & Donut Chart -> Interaction=Hover tooltip -> Justification=Provides immediate, high-level project status. Chart.js for the dynamic visual.
-        - Session Details: Goal=Organize/Inform -> Presentation=Card Grid -> Interaction=Filtering by Status/Priority, Click to expand details -> Justification=Cards are scannable and mobile-friendly. Filtering allows for focused analysis. Expanding cards provides progressive disclosure of information without cluttering the initial view. Implemented with JS data rendering and event listeners.
-        - Status/Priority: Goal=Organize -> Presentation=Colored Badges -> Interaction=Used as filter controls -> Justification=Visual cues for quick status identification.
-        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
+        .badge-uppercase { 
+            text-transform: uppercase; 
+            font-weight: 700; 
+            font-size: 0.75rem; 
+            border-radius: 9999px; 
+            padding: 0.25rem 0.75rem; 
         }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 280px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 280px;
+        .feature-card {
+            transition: all 0.3s ease;
         }
-        .kpi-card {
-            background-color: white;
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .kpi-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-        .session-card {
-            transition: box-shadow 0.3s ease-in-out;
-        }
-        .session-card-details {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
-            padding-top: 0;
-            padding-bottom: 0;
-        }
-        .session-card-details.open {
-            max-height: 500px;
-            padding-top: 1rem;
-            padding-bottom: 1rem;
-        }
-        .filter-btn {
-            transition: background-color 0.2s, color 0.2s;
-        }
-        .filter-btn.active {
-            background-color: #1d4ed8;
-            color: white;
+        .feature-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="min-h-screen bg-gradient-to-br from-green-900 to-green-500 text-gray-800 antialiased p-6 font-sans">
+    <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden">
+        <header class="bg-gradient-to-r from-green-900 to-green-700 text-white p-10 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold">MamFood Hub Development Roadmap</h1>
+            <p class="mt-2 text-lg opacity-90">Complete Feature Implementation & Progress Tracking</p>
+            <p class="mt-3 text-sm opacity-90">Last Updated: January 2025</p>
+        </header>
 
-    <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <h1 class="text-3xl font-bold leading-tight text-gray-900">MamFood Hub Development Roadmap</h1>
-            <p class="mt-1 text-md text-gray-500">Project Status Dashboard as of September 20, 2025</p>
+        <div class="flex flex-wrap justify-center gap-6 bg-gray-100 p-5">
+            <div class="flex items-center gap-3">
+                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                <span class="text-sm">Implemented</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="badge-uppercase bg-yellow-400 text-black">IN PROGRESS</span>
+                <span class="text-sm">Currently Working</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                <span class="text-sm">Not Started</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                <span class="text-sm">In Storyboard, Not Implemented</span>
+            </div>
         </div>
-    </header>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <!-- KPI Section -->
-        <section id="kpi-section" class="px-4 sm:px-0">
-            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Project Overview</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Progress Chart -->
-                <div class="kpi-card md:col-span-1 lg:col-span-1 flex flex-col items-center justify-center">
-                    <div class="chart-container">
-                        <canvas id="progressChart"></canvas>
-                    </div>
+        <main class="p-10">
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                <div class="bg-gradient-to-br from-gray-100 to-gray-200 p-6 rounded-xl border-2 border-green-500 text-center">
+                    <div class="text-3xl font-extrabold text-green-900">31</div>
+                    <div class="text-xs uppercase tracking-wide text-gray-600 mt-1">Total Features</div>
                 </div>
-                <!-- KPI Cards -->
-                <div class="kpi-card flex flex-col justify-center">
-                    <div class="text-sm font-medium text-gray-500">Overall Progress</div>
-                    <div id="progress-percent" class="mt-1 text-4xl font-semibold text-blue-700">0%</div>
+                <div class="bg-gradient-to-br from-gray-100 to-gray-200 p-6 rounded-xl border-2 border-green-500 text-center">
+                    <div class="text-3xl font-extrabold text-green-900">24</div>
+                    <div class="text-xs uppercase tracking-wide text-gray-600 mt-1">Completed</div>
                 </div>
-                <div class="kpi-card flex flex-col justify-center">
-                    <div class="text-sm font-medium text-gray-500">Sessions Completed</div>
-                    <div id="sessions-completed" class="mt-1 text-4xl font-semibold text-green-600">0</div>
+                <div class="bg-gradient-to-br from-gray-100 to-gray-200 p-6 rounded-xl border-2 border-yellow-500 text-center">
+                    <div class="text-3xl font-extrabold text-yellow-900">0</div>
+                    <div class="text-xs uppercase tracking-wide text-gray-600 mt-1">In Progress</div>
                 </div>
-                <div class="kpi-card flex flex-col justify-center">
-                    <div class="text-sm font-medium text-gray-500">Sessions Remaining</div>
-                    <div id="sessions-remaining" class="mt-1 text-4xl font-semibold text-yellow-600">0</div>
+                <div class="bg-gradient-to-br from-gray-100 to-gray-200 p-6 rounded-xl border-2 border-red-500 text-center">
+                    <div class="text-3xl font-extrabold text-red-900">7</div>
+                    <div class="text-xs uppercase tracking-wide text-gray-600 mt-1">Missing Features</div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Filters Section -->
-        <section id="filters-section" class="mt-10 px-4 sm:px-0">
-            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Explore Sessions</h2>
-            <div class="flex flex-wrap gap-4 items-center">
+            <!-- CRITICAL: MISSING FEATURES -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-red-700 to-red-500 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">🚨 Critical Missing Features (From Storyboard)</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">7 Features Missing</div>
+                </div>
+
+                <div class="bg-red-50 border-l-4 border-red-600 p-5 rounded mb-6">
+                    <div class="font-bold text-red-900 mb-2">⚠️ Storyboard Analysis Alert</div>
+                    <p class="text-gray-700">These features are <strong>fully designed in your storyboard</strong> but not yet implemented in the app. Thesis evaluators will expect to see these features working.</p>
+                </div>
+
                 <div>
-                    <span class="text-sm font-medium text-gray-600 mr-2">Status:</span>
-                    <div id="status-filters" class="inline-flex rounded-md shadow-sm" role="group">
-                        <button type="button" data-filter="all" class="filter-btn active py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-l-lg border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">All</button>
-                        <button type="button" data-filter="done" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">Done</button>
-                        <button type="button" data-filter="pending" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-r-md border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">Pending</button>
-                    </div>
-                </div>
-                  <div>
-                    <span class="text-sm font-medium text-gray-600 mr-2">Priority:</span>
-                    <div id="priority-filters" class="inline-flex rounded-md shadow-sm" role="group">
-                        <button type="button" data-filter="all" class="filter-btn active py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-l-lg border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">All</button>
-                        <button type="button" data-filter="P1" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">P1</button>
-                        <button type="button" data-filter="P2" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">P2</button>
-                        <button type="button" data-filter="P3" class="filter-btn py-2 px-4 text-sm font-medium text-gray-900 bg-white rounded-r-md border border-gray-200 hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-blue-700">P3</button>
-                    </div>
-                </div>
-            </div>
-        </section>
+                    <div class="text-lg font-bold text-red-800 mb-4 border-b-2 border-red-500 pb-3">High Priority Missing Features</div>
 
-        <!-- Roadmap Grid -->
-        <section id="roadmap-grid-container" class="mt-6">
-              <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-0">
-                <!-- Session cards will be dynamically inserted here -->
-            </div>
-        </section>
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-red-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-red-800 flex-1">📸 Photo Gallery System</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-orange-500 text-white">HIGH PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> "Add New Restaurant Picture" page, "Other Photos" gallery view with multiple images per business. <strong>Current status:</strong> Only single logo upload exists.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 3-4 hours</div>
+                            <div>📄 Storyboard: Pages 45-46</div>
+                        </div>
+                        <div class="mt-3 bg-red-100 p-3 rounded">
+                            <strong class="text-red-900">Implementation Needed:</strong>
+                            <ul class="list-disc ml-5 text-gray-700 text-sm mt-1">
+                                <li>Multi-image upload for business owners</li>
+                                <li>Gallery view for users (swipeable/tappable)</li>
+                                <li>Delete photos functionality</li>
+                                <li>Cloudinary multi-image management</li>
+                            </ul>
+                        </div>
+                    </article>
 
-    </main>
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-red-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-red-800 flex-1">🗺️ Map Integration & Navigation</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-orange-500 text-white">HIGH PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> "LOCATION" button opens interactive map, restaurant pins, directions feature. <strong>Current status:</strong> Only latitude/longitude stored, no map display.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 4-5 hours</div>
+                            <div>📄 Storyboard: Pages 32-33</div>
+                        </div>
+                        <div class="mt-3 bg-red-100 p-3 rounded">
+                            <strong class="text-red-900">Implementation Needed:</strong>
+                            <ul class="list-disc ml-5 text-gray-700 text-sm mt-1">
+                                <li>Google Maps integration (google_maps_flutter package)</li>
+                                <li>Display restaurant markers on map</li>
+                                <li>Tap marker to view business details</li>
+                                <li>"Get Directions" functionality</li>
+                                <li>Map view toggle on home page</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-red-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-red-800 flex-1">🏷️ Bookmark Labels & Categories</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-yellow-500 text-black">MEDIUM PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> Custom bookmark labels ("Pizza", "Date Night", "Want to Try"), organize by labels, delete labels dialog. <strong>Current status:</strong> Basic bookmarks only.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 2-3 hours</div>
+                            <div>📄 Storyboard: Pages 18-24</div>
+                        </div>
+                        <div class="mt-3 bg-red-100 p-3 rounded">
+                            <strong class="text-red-900">Implementation Needed:</strong>
+                            <ul class="list-disc ml-5 text-gray-700 text-sm mt-1">
+                                <li>Create/edit/delete label functionality</li>
+                                <li>Assign labels to bookmarks</li>
+                                <li>Filter bookmarks by label</li>
+                                <li>Multiple labels per bookmark</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-red-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-red-800 flex-1">🎉 Promotions & Offers System</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-yellow-500 text-black">MEDIUM PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> "Add Special Promotion" page with photo and description, "OFFERS" section on home showing "Buy 1 Take 1" deals. <strong>Current status:</strong> Shows "Active Promotion: None".</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 3-4 hours</div>
+                            <div>📄 Storyboard: Pages 43, 52-53</div>
+                        </div>
+                        <div class="mt-3 bg-red-100 p-3 rounded">
+                            <strong class="text-red-900">Implementation Needed:</strong>
+                            <ul class="list-disc ml-5 text-gray-700 text-sm mt-1">
+                                <li>Create promotion form (photo, description, expiry)</li>
+                                <li>Display active promotions on home page</li>
+                                <li>Promotion badge on business cards</li>
+                                <li>Expired promotion cleanup</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-red-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-red-800 flex-1">🔍 Advanced Filters (Price, Rating, Category)</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-yellow-500 text-black">MEDIUM PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> Detailed filter modal with category checkboxes, rating filters (5⭐, 4⭐+), price range sliders (₱10-200, ₱200-400). <strong>Current status:</strong> Only basic category chips.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 3-4 hours</div>
+                            <div>📄 Storyboard: Page 30</div>
+                        </div>
+                        <div class="mt-3 bg-red-100 p-3 rounded">
+                            <strong class="text-red-900">Implementation Needed:</strong>
+                            <ul class="list-disc ml-5 text-gray-700 text-sm mt-1">
+                                <li>Filter modal UI with all options</li>
+                                <li>Multi-select category filters</li>
+                                <li>Rating filter logic</li>
+                                <li>Price range slider with min/max</li>
+                                <li>Apply filters button with result count</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-orange-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-orange-800 flex-1">✏️ Business Profile Editor</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-blue-500 text-white">LOW PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> "Update Business Information" page with all business details editable. <strong>Current status:</strong> Can only edit menu items, no business info editor.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 2-3 hours</div>
+                            <div>📄 Storyboard: Page 48</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border-2 bg-white p-5 feature-card border-orange-400">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-orange-800 flex-1">📄 Static Pages (Terms, Privacy, About, Report)</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-red-600 text-white">MISSING</span>
+                                <span class="badge-uppercase bg-blue-500 text-white">LOW PRIORITY</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3"><strong>Storyboard shows:</strong> Complete text for Terms of Use, Privacy Policy, About Us (with developer info), and Report a Problem form. <strong>Current status:</strong> Menu items exist but pages not implemented.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 2 hours total</div>
+                            <div>📄 Storyboard: Pages 8-12, 38-41, 54-56</div>
+                        </div>
+                        <div class="mt-3 bg-orange-100 p-3 rounded">
+                            <strong class="text-orange-900">Note:</strong> Text content is already written in storyboard, just needs to be formatted into Flutter pages.
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 0: REFACTORING -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-green-700 to-green-400 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 0: Code Refactoring & Architecture</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">COMPLETED ✅</div>
+                </div>
+
+                <div class="bg-green-50 border-l-4 border-green-400 p-5 rounded mb-6">
+                    <div class="font-bold text-green-900 mb-2">✅ Refactoring Complete!</div>
+                    <p class="text-gray-700">All core files refactored with centralized configuration and theming. Clean, maintainable codebase following best practices.</p>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-green-800 mb-4 border-b-2 border-green-500 pb-3">Code Organization (13 Tasks)</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">AppConfig & AppTheme Creation</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Created centralized configuration and theming system. All constants, API keys, colors, and text styles in one place.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">Refactored 11 Core Files</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">main.dart, business pages, menu management, home page, details, search, review form, explore page - all updated to use AppConfig/AppTheme.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 1: SECURITY -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-green-700 to-green-400 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 1: Critical Security & Bug Fixes</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">COMPLETED ✅</div>
+                </div>
+
+                <div class="bg-green-50 border-l-4 border-green-400 p-5 rounded mb-6">
+                    <div class="font-bold text-green-900 mb-2">✅ Security Hardened!</div>
+                    <p class="text-gray-700">Firebase Security Rules implemented with email-based authentication, Cloudinary secured, GPS location capture working.</p>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-green-800 mb-4 border-b-2 border-green-500 pb-3">Security Implementation (3 Tasks)</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">Firebase Security Rules</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Role-based access control with email-based authentication checks. Admin account created (test@example.com).</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">Cloudinary Security & Location Capture</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Client-side validation (5MB limit, image formats). GPS location capture with Geolocator package.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 2: USER AUTH -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-green-700 to-green-400 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 2: User Authentication & Profiles</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">COMPLETED ✅</div>
+                </div>
+
+                <div class="bg-green-50 border-l-4 border-green-400 p-5 rounded mb-6">
+                    <div class="font-bold text-green-900 mb-2">✅ User System Complete!</div>
+                    <p class="text-gray-700">Full user registration, login, profile management, and authenticated reviews working.</p>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-green-800 mb-4 border-b-2 border-green-500 pb-3">User Features (4 Tasks)</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">User Registration, Login & Profile Management</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Complete authentication flow with profile editor, photo upload, real-time statistics, and authenticated reviews.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 3: BOOKMARKING -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-green-700 to-green-400 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 3: Bookmarking & Favorites</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">COMPLETED ✅</div>
+                </div>
+
+                <div class="bg-green-50 border-l-4 border-green-400 p-5 rounded mb-6">
+                    <div class="font-bold text-green-900 mb-2">✅ Bookmarks Working!</div>
+                    <p class="text-gray-700">Users can bookmark restaurants with real-time sync. Counts update automatically. <strong>Note:</strong> Custom labels feature from storyboard not yet implemented.</p>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-green-800 mb-4 border-b-2 border-green-500 pb-3">Bookmark Features (3 Tasks)</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">Bookmark Service, Buttons & Page</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Complete bookmark management with add/remove, real-time status watching, dedicated bookmarks page with real-time counts.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 4: ADMIN -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-green-700 to-green-400 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 4: Admin Dashboard</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">COMPLETED ✅</div>
+                </div>
+
+                <div class="bg-green-50 border-l-4 border-green-400 p-5 rounded mb-6">
+                    <div class="font-bold text-green-900 mb-2">✅ Admin System Complete!</div>
+                    <p class="text-gray-700">Full admin dashboard with accurate statistics, business approval workflow, review moderation, and user management.</p>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-green-800 mb-4 border-b-2 border-green-500 pb-3">Admin Features (4 Tasks)</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">Admin Dashboard & Business Approval</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Overview with real-time stats, separate pages for approved/pending/rejected businesses, accurate count filtering.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-green-800 flex-1">Review Moderation & User Management</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-green-500 text-white">DONE</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">View all reviews with sorting/deletion, user search with activate/deactivate/delete functionality.</p>
+                        <div class="mt-3">
+                            <div class="h-2 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-500 to-green-400" style="width:100%"></div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 5: ENHANCEMENTS (STORYBOARD FEATURES) -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-blue-700 to-blue-500 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 5: Feature Enhancements (From Storyboard)</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">7 Features Remaining</div>
+                </div>
+
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-5 rounded mb-6">
+                    <div class="font-bold text-blue-900 mb-2">📋 Next Priority: Complete Storyboard Features</div>
+                    <p class="text-gray-700">These features are fully designed in your storyboard and should be implemented before thesis defense. Estimated total time: 16-20 hours.</p>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-blue-800 mb-4 border-b-2 border-blue-500 pb-3">Recommended Implementation Order</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">1. Photo Gallery System</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Enable business owners to upload multiple photos. Users can view gallery, swipe through images. Most visible missing feature.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 3-4 hours</div>
+                            <div>🎯 Priority: HIGH</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">2. Map Integration & Navigation</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Interactive maps showing restaurant locations, markers, directions. Makes location data useful. Essential for food discovery app.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 4-5 hours</div>
+                            <div>🎯 Priority: HIGH</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">3. Bookmark Labels & Organization</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Custom bookmark labels for organization. Enhances existing bookmark system with categorization shown in storyboard.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 2-3 hours</div>
+                            <div>🎯 Priority: MEDIUM</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">4. Promotions & Offers System</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Business owners create time-limited promotions. Display on home page with "OFFERS" section. Marketing tool for businesses.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 3-4 hours</div>
+                            <div>🎯 Priority: MEDIUM</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">5. Advanced Filter System</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Filter modal with category multi-select, rating filters, price range sliders. Improves restaurant discovery experience.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 3-4 hours</div>
+                            <div>🎯 Priority: MEDIUM</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">6. Business Profile Editor</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Business owners can edit all business information, hours, features. Currently can only edit menu items.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 2-3 hours</div>
+                            <div>🎯 Priority: LOW</div>
+                        </div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-blue-300">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-blue-800 flex-1">7. Static Pages (Terms, Privacy, About, Report)</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">All text already written in storyboard. Just needs formatting into Flutter pages. Quick wins for completion percentage.</p>
+                        <div class="text-sm text-gray-500 mt-3 flex gap-4">
+                            <div>⏱️ Est. Time: 2 hours</div>
+                            <div>🎯 Priority: LOW</div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- PHASE 6: POLISH -->
+            <section class="mb-12">
+                <div class="flex justify-between items-center bg-gradient-to-r from-purple-700 to-purple-500 text-white p-5 rounded-lg mb-6">
+                    <div class="text-xl font-bold">Phase 6: Polish & Testing</div>
+                    <div class="bg-white/20 px-4 py-1 rounded-full text-sm">Not Started</div>
+                </div>
+
+                <div>
+                    <div class="text-lg font-bold text-purple-800 mb-4 border-b-2 border-purple-500 pb-3">Final Polish Before Launch</div>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-purple-800 flex-1">Comprehensive Testing</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Test all user flows, edge cases, error handling. Multiple devices and screen sizes. Real-world usage scenarios.</p>
+                        <div class="text-sm text-gray-500 mt-3">⏱️ Est. Time: 16 hours (2 days)</div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-purple-800 flex-1">Performance Optimization</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Optimize image loading, reduce Firestore reads, implement pagination, improve startup time.</p>
+                        <div class="text-sm text-gray-500 mt-3">⏱️ Est. Time: 6 hours</div>
+                    </article>
+
+                    <article class="mb-4 rounded-lg border bg-white p-5 feature-card border-gray-200">
+                        <div class="flex justify-between items-start">
+                            <div class="text-lg font-semibold text-purple-800 flex-1">App Icon & Splash Screen</div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <span class="badge-uppercase bg-blue-600 text-white">PLANNED</span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 mt-3">Professional app icon design and splash screen branding.</p>
+                        <div class="text-sm text-gray-500 mt-3">⏱️ Est. Time: 2 hours</div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- CRITICAL NOTES -->
+            <div class="bg-red-50 border-l-4 border-red-600 p-5 rounded mb-6">
+                <div class="font-bold text-red-900 mb-2">⚠️ CRITICAL: Storyboard vs Implementation Gap</div>
+                <p class="text-gray-700 mb-3"><strong>Your storyboard shows 7 features that are NOT implemented:</strong></p>
+                <ul class="list-disc pl-6 space-y-1 text-gray-700">
+                    <li><strong>Photo Gallery</strong> - Fully designed, users expect multiple photos</li>
+                    <li><strong>Maps</strong> - Essential for location-based discovery, your GPS data is unused</li>
+                    <li><strong>Bookmark Labels</strong> - Detailed implementation shown in storyboard pages 18-24</li>
+                    <li><strong>Promotions</strong> - "Add Special Promotion" page designed, currently shows "None"</li>
+                    <li><strong>Advanced Filters</strong> - Complete filter modal designed on page 30</li>
+                    <li><strong>Business Editor</strong> - "Update Business Information" page exists but not implemented</li>
+                    <li><strong>Static Pages</strong> - All text written (Terms, Privacy, About, Report) but pages missing</li>
+                </ul>
+                <p class="text-gray-700 mt-3"><strong>Recommendation:</strong> Implement at least Photo Gallery + Maps before thesis defense. These are the most visible gaps between design and reality.</p>
+            </div>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-5 rounded mb-6">
+                <div class="font-bold text-yellow-800 mb-2">Development Notes</div>
+                <p class="text-gray-700"><strong>Current Status:</strong> Core app functionality complete (Phases 0-4). 77% finished (24/31 features).</p>
+                <p class="text-gray-700"><strong>Time Investment:</strong> ~85 hours spent so far. Estimated 16-20 hours to complete storyboard features.</p>
+                <p class="text-gray-700"><strong>Next Priority:</strong> Implement missing storyboard features, especially Photo Gallery and Maps (7-9 hours for both).</p>
+                <p class="text-gray-700"><strong>Thesis Defense:</strong> Having storyboard features working will strengthen your presentation significantly.</p>
+            </div>
+
+            <div class="bg-green-50 border-l-4 border-green-500 p-5 rounded mb-6">
+                <div class="font-bold text-green-900 mb-2">Key Achievements</div>
+                <ul class="list-disc pl-6 mt-3 space-y-2 text-gray-700">
+                    <li><strong>Solid Foundation:</strong> Clean architecture, security hardened, all core features working</li>
+                    <li><strong>Complete Admin System:</strong> Business approval, review moderation, user management</li>
+                    <li><strong>User Features:</strong> Registration, profiles, bookmarks, authenticated reviews</li>
+                    <li><strong>Business Features:</strong> Dashboard, menu management, location capture</li>
+                    <li><strong>Real-time Updates:</strong> StreamBuilders providing live data sync</li>
+                </ul>
+            </div>
+
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-5 rounded">
+                <div class="font-bold text-blue-900 mb-2">Recommended Path Forward</div>
+                <ol class="list-decimal pl-6 mt-3 space-y-2 text-gray-700">
+                    <li><strong>Priority 1:</strong> Implement Photo Gallery (3-4 hours) - Most expected feature</li>
+                    <li><strong>Priority 2:</strong> Implement Maps Integration (4-5 hours) - Makes location data useful</li>
+                    <li><strong>Priority 3:</strong> Add Bookmark Labels (2-3 hours) - Quick enhancement</li>
+                    <li><strong>Priority 4:</strong> Implement remaining features based on time available</li>
+                    <li><strong>Final:</strong> Comprehensive testing and polish (Phase 6)</li>
+                </ol>
+                <p class="text-gray-700 mt-3"><strong>Estimated to 100% completion:</strong> 20-25 hours of focused work</p>
+            </div>
+        </main>
+
+        <footer class="bg-green-900 text-white p-8 text-center">
+            <h3 class="text-xl font-semibold">MamFood Hub</h3>
+            <p class="mt-2">Developed by: Martin Francisco, Arjay Lalis, Ela Lizada, Justin Roi Perlas</p>
+            <p>Capiz State University - Mambusao Satellite College</p>
+            <p class="mt-4 opacity-80 text-sm">Last Major Update: Storyboard Analysis Complete - January 2025</p>
+            <p class="opacity-80 text-sm">77% Complete (24/31 features) - 7 storyboard features remaining</p>
+            <p class="opacity-80 text-sm font-bold mt-2">Next: Implement Photo Gallery + Maps Integration</p>
+        </footer>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const roadmapData = [
-                { session: 1, title: 'Project Setup', date: 'September 8-9', priority: 'P1', tasks: '- Initialize Flutter project.<br>- Add Firebase dependencies.<br>- Add other essential packages.<br>- Configure Firebase project for Android.', description: 'Establishes the project\'s foundation and integrates the necessary backend services.', status: 'done' },
-                { session: 2, title: 'Business Owner UI', date: 'September 10', priority: 'P1', tasks: '- Create the "Login" screen.<br>- Design the "Sign Up" screen.<br>- Implement input fields.<br>- Ensure UI matches storyboard.', description: 'Focus on building the front-end for the business owner authentication flow.', status: 'done' },
-                { session: 3, title: 'Business Owner Logic', date: 'September 11', priority: 'P1', tasks: '- Implement `firebase_auth` sign-up logic.<br>- Implement `firebase_auth` login logic.<br>- Set up user session handling.<br>- Connect UI to auth logic.', description: 'The backend integration session for business owners.', status: 'done' },
-                { session: 4, title: 'Unauthenticated User UI', date: 'September 12', priority: 'P1', tasks: '- Design the "Home" screen.<br>- Create a top search bar component.<br>- Build the "Category List" widget.<br>- Design the "Restaurant Card" widget.', description: 'Crucial for the unauthenticated user experience, as it\'s the first screen they\'ll see.', status: 'done' },
-                { session: 5, title: 'Home Screen Data Fetch', date: 'September 13', priority: 'P1', tasks: '- Connect home screen to Firestore.<br>- Fetch data for the category list.<br>- Implement logic to display restaurants.', description: 'Makes the Home screen functional by populating it with real data from Firestore.', status: 'done' },
-                { session: 6, title: 'Restaurant Details UI & Review Form', date: 'September 14-15', priority: 'P1', tasks: '- Design the "Restaurant Details" page.<br>- Implement tab view for "Menu" and "Reviews".<br>- Create the "Leave a Review" modal form.', description: 'Builds the UI for viewing details and preparing for user feedback.', status: 'done' },
-                { session: 7, title: 'Business Owner Dashboard', date: 'September 16-17', priority: 'P2', tasks: '- Implement adding establishments and menus. <br>- **Implement customer review and analytics.**<br>- Implement data cards for metrics.<br>- Design screens for "Add/Manage Menu Items".', description: 'Starts the second half of the project, focusing on business-specific features.', status: 'done' },
-                { session: 8, title: 'User Review Logic', date: 'September 18-19', priority: 'P2', tasks: '- Implement logic to submit reviews to Firestore.<br>- Validate review form fields.<br>- Display submitted reviews on the Details page.', description: 'Adds the final piece to the core user flow, enabling interactions with data.', status: 'done' },
-                { session: 9, title: 'Search Functionality', date: 'September 20', priority: 'P2', tasks: '- Implement a search function that filters restaurants and food items from Firestore.', description: 'Enhances the user experience by making it easier to find specific items.', status: 'done' },
-                { session: 10, title: 'User Favorites (Local)', date: 'September 21-22', priority: 'P2', tasks: '- Implement `shared_preferences` to save favorite restaurants locally.<br>- Create "My Favorites" screen.', description: 'Adds a personalized touch for users without requiring a full account.', status: 'pending' },
-                { session: 11, title: 'Final Touches', date: 'September 23-24', priority: 'P3', tasks: '- Create "Report a Problem" form.<br>- Design "Terms & Privacy" pages.<br>- Polish UI and ensure responsiveness.', description: 'The final stage involves building secondary pages and ensuring a high-quality user experience.', status: 'pending' },
-                { session: 12, title: 'Admin & Promotions', date: 'September 25-26', priority: 'P3', tasks: '- Implement a basic admin panel for moderation.<br>- Add functionality for business owners to create promotions.', description: 'Final features for app management and monetization.', status: 'pending' }
-            ];
-
-            let currentStatusFilter = 'all';
-            let currentPriorityFilter = 'all';
-
-            const grid = document.getElementById('roadmap-grid');
-            const statusFilters = document.getElementById('status-filters');
-            const priorityFilters = document.getElementById('priority-filters');
+        document.addEventListener('DOMContentLoaded', function() {
+            const totalFeatures = 31;
+            const completedFeatures = 24;
+            const missingFeatures = 7;
+            const progressPercentage = ((completedFeatures / totalFeatures) * 100).toFixed(1);
             
-            function getPriorityClass(priority) {
-                switch (priority) {
-                    case 'P1': return 'bg-red-100 text-red-800';
-                    case 'P2': return 'bg-yellow-100 text-yellow-800';
-                    case 'P3': return 'bg-blue-100 text-blue-800';
-                    default: return 'bg-gray-100 text-gray-800';
-                }
-            }
-
-            function getStatusClass(status) {
-                return status === 'done' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
-            }
+            console.log(`MamFood Hub Progress: ${progressPercentage}% (${completedFeatures}/${totalFeatures} features)`);
+            console.warn(`Missing from Storyboard: ${missingFeatures} features need implementation`);
             
-            function renderRoadmap() {
-                grid.innerHTML = '';
-                const filteredData = roadmapData.filter(item => {
-                    const statusMatch = currentStatusFilter === 'all' || item.status === currentStatusFilter || (currentStatusFilter === 'pending' && item.status !== 'done');
-                    const priorityMatch = currentPriorityFilter === 'all' || item.priority === currentPriorityFilter;
-                    return statusMatch && priorityMatch;
+            const featureCards = document.querySelectorAll('.feature-card');
+            featureCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    this.style.transform = this.style.transform === 'scale(1.02)' ? 'scale(1)' : 'scale(1.02)';
                 });
-
-                if (filteredData.length === 0) {
-                    grid.innerHTML = `<div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-10 text-gray-500">
-                        <p class="text-lg">No sessions match the current filters.</p>
-                    </div>`;
-                    return;
-                }
-
-                filteredData.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'session-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer';
-                    card.innerHTML = `
-                        <div class="p-6">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-lg font-semibold text-gray-800">Session ${item.session}: ${item.title}</h3>
-                                ${item.status === 'done' ? '<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' : ''}
-                            </div>
-                            <div class="flex items-center gap-2 mt-2">
-                                <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusClass(item.status)}">${item.status.charAt(0).toUpperCase() + item.status.slice(1)}</span>
-                                <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${getPriorityClass(item.priority)}">${item.priority}</span>
-                                <span class="text-xs text-gray-500">${item.date}</span>
-                            </div>
-                            <p class="text-gray-600 mt-4 text-sm">${item.description}</p>
-                        </div>
-                        <div class="session-card-details bg-gray-50 px-6 border-t border-gray-200">
-                               <h4 class="font-semibold text-gray-700 mb-2">Tasks to be Completed:</h4>
-                               <div class="text-sm text-gray-600 space-y-1">${item.tasks}</div>
-                        </div>
-                    `;
-                    grid.appendChild(card);
-                });
-            }
-            
-            function updateKPIs() {
-                const totalSessions = roadmapData.length;
-                const completedSessions = roadmapData.filter(s => s.status === 'done').length;
-                const remainingSessions = totalSessions - completedSessions;
-                const progress = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
-
-                document.getElementById('progress-percent').textContent = `${progress.toFixed(0)}%`;
-                document.getElementById('sessions-completed').textContent = completedSessions;
-                document.getElementById('sessions-remaining').textContent = remainingSessions;
-
-                updateChart(completedSessions, remainingSessions);
-            }
-
-            let progressChart;
-            function updateChart(completed, remaining) {
-                const ctx = document.getElementById('progressChart').getContext('2d');
-                if (progressChart) {
-                    progressChart.destroy();
-                }
-                progressChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Completed', 'Remaining'],
-                        datasets: [{
-                            data: [completed, remaining],
-                            backgroundColor: [
-                                'rgba(22, 163, 74, 1)', // green-600
-                                'rgba(229, 231, 235, 1)' // gray-200
-                            ],
-                            borderColor: [
-                                'rgba(255, 255, 255, 1)',
-                                'rgba(255, 255, 255, 1)'
-                            ],
-                            borderWidth: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '70%',
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                enabled: true
-                            },
-                            title: {
-                                display: true,
-                                text: 'Project Progress',
-                                font: {
-                                    size: 16,
-                                    weight: '600'
-                                },
-                                color: '#374151'
-                            }
-                        }
-                    }
-                });
-            }
-
-            statusFilters.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') {
-                    currentStatusFilter = e.target.dataset.filter;
-                    statusFilters.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-                    e.target.classList.add('active');
-                    renderRoadmap();
-                }
-            });
-
-            priorityFilters.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') {
-                    currentPriorityFilter = e.target.dataset.filter;
-                    priorityFilters.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-                    e.target.classList.add('active');
-                    renderRoadmap();
-                }
             });
             
-            grid.addEventListener('click', (e) => {
-                const card = e.target.closest('.session-card');
-                if (card) {
-                    const details = card.querySelector('.session-card-details');
-                    details.classList.toggle('open');
-                }
-            });
-
-
-            updateKPIs();
-            renderRoadmap();
+            const missingBadges = document.querySelectorAll('.badge-uppercase.bg-red-600');
+            if (missingBadges.length > 0) {
+                console.warn(`${missingBadges.length} MISSING features from storyboard require implementation!`);
+            }
+            
+            if (completedFeatures === totalFeatures) {
+                const header = document.querySelector('header');
+                const completionBanner = document.createElement('div');
+                completionBanner.style.cssText = 'background: #4CAF50; padding: 15px; margin-top: 20px; border-radius: 10px; font-weight: bold;';
+                completionBanner.textContent = '🎉 ALL FEATURES COMPLETE! Ready for thesis defense!';
+                header.appendChild(completionBanner);
+            }
         });
     </script>
 </body>
