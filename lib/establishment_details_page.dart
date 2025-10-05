@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'user_review_form.dart'; // Assuming this file exists and is correct
+import 'package:firebase_auth/firebase_auth.dart';
+import 'config/app_config.dart';
+import 'config/app_theme.dart';
+import 'user_review_form.dart';
+import 'user_auth_page.dart';
+import 'services/bookmark_service.dart';
 
 class EstablishmentDetailsPage extends StatefulWidget {
-  final String establishmentId;
-  final String establishmentName;
+  final String establishmentId; // This is the business document ID
 
   const EstablishmentDetailsPage({
     super.key,
     required this.establishmentId,
-    required this.establishmentName,
   });
 
   @override
@@ -18,22 +21,101 @@ class EstablishmentDetailsPage extends StatefulWidget {
 }
 
 class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
+  // ==================== FIREBASE INSTANCES ====================
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static const Color primaryGreen = Color(0xFF1B5E20); // Dark Green
-  static const Color lightGreen = Color(0xFF4CAF50); // Light Green
-  static const Color accentYellow = Color(0xFFFFC107); // Amber
-  static const Color backgroundColor = Color(0xFFFAFAFA); // Very light grey
+  final BookmarkService _bookmarkService = BookmarkService();
 
-  // Helper to display the establishment's logo
-  Widget _buildLogo(String? establishmentLogoUrl) {
-    final String? logoToDisplay = establishmentLogoUrl;
+  // ==================== BOOKMARK HANDLING ====================
+  /// Handle bookmark button tap
+  Future<void> _handleBookmarkTap(
+    String businessName,
+    String businessType,
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // Check if user is authenticated (not anonymous)
+    if (user == null || user.isAnonymous) {
+      // Show dialog prompting user to sign in
+      if (!mounted) return;
+      
+      final shouldSignIn = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Sign In Required'),
+          content: const Text(
+            'You need to create an account or sign in to bookmark restaurants.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Sign In'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSignIn == true && mounted) {
+        // Navigate to sign in page
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserAuthPage()),
+        );
+
+        // After sign in, try bookmarking again
+        if (result == true && mounted) {
+          await _handleBookmarkTap(businessName, businessType);
+        }
+      }
+      return;
+    }
+
+    // User is authenticated - toggle bookmark
+    final success = await _bookmarkService.toggleBookmark(
+      businessId: widget.establishmentId,
+      businessName: businessName,
+      businessType: businessType,
+    );
+
+    if (!mounted) return;
+
+    // Show feedback
+    if (success) {
+      final isBookmarked = await _bookmarkService.isBookmarked(widget.establishmentId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isBookmarked
+                ? '✓ Added to bookmarks'
+                : 'Removed from bookmarks',
+          ),
+          backgroundColor:
+              isBookmarked ? AppTheme.successGreen : AppTheme.textSecondary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update bookmark. Please try again.'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
+  }
+
+  // ==================== BUILD LOGO ====================
+  Widget _buildLogo(String? logoUrl) {
     const double logoSize = 100.0;
 
     return Container(
       height: logoSize,
       width: logoSize,
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: AppTheme.backgroundColor,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 4),
         boxShadow: [
@@ -45,27 +127,33 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
           ),
         ],
       ),
-      child: logoToDisplay != null && logoToDisplay.isNotEmpty
-              ? ClipOval(
-                  child: Image.network(
-                    logoToDisplay,
-                    height: logoSize,
-                    width: logoSize,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Center(
-                      child: Icon(Icons.storefront_rounded,
-                          color: lightGreen, size: 50),
-                    ),
+      child: logoUrl != null && logoUrl.isNotEmpty
+          ? ClipOval(
+              child: Image.network(
+                logoUrl,
+                height: logoSize,
+                width: logoSize,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Icon(
+                    Icons.storefront_rounded,
+                    color: AppTheme.secondaryGreen,
+                    size: 50,
                   ),
-                )
-              : Center(
-                  child:
-                      Icon(Icons.storefront_rounded, color: lightGreen, size: 50),
                 ),
+              ),
+            )
+          : Center(
+              child: Icon(
+                Icons.storefront_rounded,
+                color: AppTheme.secondaryGreen,
+                size: 50,
+              ),
+            ),
     );
   }
 
-  // NEW HELPER: Build widget for menu item image or placeholder
+  // ==================== BUILD MENU ITEM IMAGE ====================
   Widget _buildMenuItemImage(String? imageUrl) {
     const double size = 70.0;
     return ClipRRect(
@@ -73,184 +161,47 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
       child: Container(
         height: size,
         width: size,
-        color: lightGreen.withOpacity(0.2), // Light background for placeholder
+        color: AppTheme.secondaryGreen.withOpacity(0.2),
         child: imageUrl != null && imageUrl.isNotEmpty
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Center(
-                  child: Icon(Icons.fastfood, color: primaryGreen, size: 30),
+                  child: Icon(
+                    Icons.fastfood,
+                    color: AppTheme.primaryGreen,
+                    size: 30,
+                  ),
                 ),
               )
             : Center(
-                child: Icon(Icons.fastfood, color: primaryGreen, size: 30),
+                child: Icon(
+                  Icons.fastfood,
+                  color: AppTheme.primaryGreen,
+                  size: 30,
+                ),
               ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _firestore
-          .collection('establishments')
-          .doc(widget.establishmentId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Loading Details'),
-              backgroundColor: primaryGreen,
-              foregroundColor: Colors.white,
-              elevation: 0,
-            ),
-            body: const Center(
-                child: CircularProgressIndicator(color: primaryGreen)),
-          );
-        }
-
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Error'),
-              backgroundColor: primaryGreen,
-              foregroundColor: Colors.white,
-              elevation: 0,
-            ),
-            body: const Center(
-                child: Text('Establishment not found.',
-                    style: TextStyle(fontSize: 16))),
-          );
-        }
-
-        var data = snapshot.data!.data() as Map<String, dynamic>;
-        final String? establishmentLogoUrl = data['logoUrl'];
-
-        return Scaffold(
-          backgroundColor: backgroundColor,
-          body: CustomScrollView(
-            slivers: [
-              // Simple app bar
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: primaryGreen,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                title: Text(
-                  data['name'] ?? 'Details',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-
-              SliverList(
-                delegate: SliverChildListDelegate(
-                  [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-
-                          // Logo + Name
-                          Align(
-                            alignment: Alignment.center,
-                            child: Column(
-                              children: [
-                                _buildLogo(establishmentLogoUrl),
-                                const SizedBox(height: 10),
-                                Text(
-                                  data['name'] ?? 'Unnamed Establishment',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-                          _buildRatingAndReviewInfo(),
-                          const SizedBox(height: 24),
-
-                          Text(
-                            data['description'] ??
-                                'No description available.',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[700],
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          _buildSectionTitle('Information', Icons.info_outline),
-                          const SizedBox(height: 16),
-                          _buildDetailsCard(data),
-                          const SizedBox(height: 32),
-
-                          _buildSectionTitle('Menu Items', Icons.menu_book),
-                          const SizedBox(height: 16),
-                          _buildMenuItemsList(), // This is where the menu loads
-                          const SizedBox(height: 32),
-
-                          _buildSectionTitle(
-                              'Customer Reviews', Icons.rate_review),
-                          const SizedBox(height: 16),
-                          _buildReviewsList(),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: _navigateToReviewForm,
-            label: const Text(
-              'Write a Review',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
-            ),
-            icon: const Icon(Icons.edit_note, color: Colors.white, size: 28),
-            backgroundColor: primaryGreen,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30.0),
-            ),
-            elevation: 10,
-          ),
-          floatingActionButtonLocation:
-              FloatingActionButtonLocation.centerFloat,
-        );
-      },
-    );
-  }
-
+  // ==================== BUILD SECTION TITLE ====================
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: primaryGreen, size: 28),
+        Icon(icon, color: AppTheme.primaryGreen, size: 28),
         const SizedBox(width: 10),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: primaryGreen,
+          style: AppTheme.headingMedium.copyWith(
+            color: AppTheme.primaryGreen,
           ),
         ),
       ],
     );
   }
 
+  // ==================== BUILD DETAILS CARD ====================
   Widget _buildDetailsCard(Map<String, dynamic> data) {
     return Card(
       elevation: 4,
@@ -261,25 +212,41 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildDetailRow(Icons.location_on_outlined, 'Address',
-                data['address'] ?? 'N/A'),
-            const Divider(height: 20),
-            _buildDetailRow(Icons.phone_outlined, 'Contact',
-                data['contactNumber'] ?? 'N/A'),
+            _buildDetailRow(
+              Icons.location_on_outlined,
+              'Address',
+              data['businessAddress'] ?? 'N/A',
+            ),
             const Divider(height: 20),
             _buildDetailRow(
-                Icons.category_outlined, 'Category', data['category'] ?? 'N/A'),
+              Icons.phone_outlined,
+              'Contact',
+              data['phoneNumber'] ?? 'N/A',
+            ),
+            const Divider(height: 20),
+            _buildDetailRow(
+              Icons.category_outlined,
+              'Type',
+              data['businessType'] ?? 'N/A',
+            ),
+            const Divider(height: 20),
+            _buildDetailRow(
+              Icons.email_outlined,
+              'Email',
+              data['email'] ?? 'N/A',
+            ),
           ],
         ),
       ),
     );
   }
 
+  // ==================== BUILD DETAIL ROW ====================
   Widget _buildDetailRow(IconData icon, String label, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: lightGreen, size: 24),
+        Icon(icon, color: AppTheme.secondaryGreen, size: 24),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -287,19 +254,18 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTheme.bodySmall.copyWith(
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey[500],
+                  color: AppTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 text,
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87),
+                style: AppTheme.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
               ),
             ],
           ),
@@ -308,12 +274,13 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
     );
   }
 
+  // ==================== BUILD RATING AND REVIEW INFO ====================
   Widget _buildRatingAndReviewInfo() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
-          .collection('establishments')
+          .collection(AppConfig.businessesCollection)
           .doc(widget.establishmentId)
-          .collection('reviews')
+          .collection(AppConfig.reviewsSubcollection)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -336,22 +303,24 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(Icons.star_rounded, color: accentYellow, size: 36),
+            Icon(
+              Icons.star_rounded,
+              color: AppTheme.accentYellow,
+              size: 36,
+            ),
             const SizedBox(width: 8),
             Text(
               averageRating > 0 ? averageRating.toStringAsFixed(1) : '—',
-              style: const TextStyle(
+              style: AppTheme.headingLarge.copyWith(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
-                color: Colors.black,
               ),
             ),
             const SizedBox(width: 12),
             Text(
               '($reviewCount ratings)',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
+              style: AppTheme.bodyLarge.copyWith(
+                color: AppTheme.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -361,23 +330,44 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
     );
   }
 
+  // ==================== BUILD MENU ITEMS LIST ====================
   Widget _buildMenuItemsList() {
     return StreamBuilder<QuerySnapshot>(
-      // 🚨 Ensure the Establishment ID (widget.establishmentId) is correct here! 🚨
       stream: _firestore
-          .collection('establishments')
+          .collection(AppConfig.businessesCollection)
           .doc(widget.establishmentId)
-          .collection('menuItems')
+          .collection(AppConfig.menuItemsSubcollection)
+          .orderBy('createdAt', descending: false)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-              child: CircularProgressIndicator(color: primaryGreen));
+          return Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+          );
         }
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(
-              child: Text('No menu items available.',
-                  style: TextStyle(color: Colors.grey[600])));
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.menu_book,
+                    size: 64,
+                    color: AppTheme.primaryGreen.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No menu items available yet.',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final menuItems = snapshot.data!.docs;
@@ -388,43 +378,88 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
           itemBuilder: (context, index) {
             var item = menuItems[index].data() as Map<String, dynamic>;
             final String? imageUrl = item['imageUrl'];
-            
-            // Updated Card and ListTile to include the image
+            final bool isAvailable = item['isAvailable'] ?? true;
+
             return Card(
               margin: const EdgeInsets.only(bottom: 12.0),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
               ),
               elevation: 4,
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 8.0, horizontal: 16.0),
-                
-                // ADDED: Display the menu item image here
-                leading: _buildMenuItemImage(imageUrl), 
-
-                title: Text(
-                  item['name'] ?? 'No Name',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                      color: primaryGreen),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Text(
-                    item['description'] ?? 'No Description',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+              child: Opacity(
+                opacity: isAvailable ? 1.0 : 0.5,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 16.0,
                   ),
-                ),
-                trailing: Text(
-                  '₱${(item['price'] as num?)?.toStringAsFixed(2) ?? 'N/A'}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: primaryGreen,
+                  leading: _buildMenuItemImage(imageUrl),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item['name'] ?? 'No Name',
+                          style: AppTheme.titleMedium.copyWith(
+                            color: AppTheme.primaryGreen,
+                            decoration: isAvailable
+                                ? null
+                                : TextDecoration.lineThrough,
+                          ),
+                        ),
+                      ),
+                      if (!isAvailable)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.errorRed.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'OUT',
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.errorRed,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['description'] ?? 'No Description',
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (item['category'] != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            item['category'],
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.primaryGreen,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  trailing: Text(
+                    '₱${(item['price'] as num?)?.toStringAsFixed(2) ?? 'N/A'}',
+                    style: AppTheme.titleMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryGreen,
+                    ),
                   ),
                 ),
               ),
@@ -435,23 +470,49 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
     );
   }
 
+  // ==================== BUILD REVIEWS LIST ====================
   Widget _buildReviewsList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
-          .collection('establishments')
+          .collection(AppConfig.businessesCollection)
           .doc(widget.establishmentId)
-          .collection('reviews')
+          .collection(AppConfig.reviewsSubcollection)
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-              child: CircularProgressIndicator(color: primaryGreen));
+          return Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+          );
         }
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(
-              child: Text('No reviews yet. Be the first to share your experience!',
-                  style: TextStyle(color: Colors.grey[600])));
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.rate_review,
+                    size: 64,
+                    color: AppTheme.primaryGreen.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No reviews yet.',
+                    style: AppTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Be the first to share your experience!',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final reviews = snapshot.data!.docs;
@@ -465,7 +526,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
             String formattedDate = '';
             Timestamp? timestamp = review['timestamp'] as Timestamp?;
             if (timestamp != null) {
-              // Simple date formatting
               formattedDate = timestamp.toDate().toString().split(' ')[0];
             } else {
               formattedDate = 'Unknown Date';
@@ -492,17 +552,15 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                             children: [
                               Text(
                                 review['reviewerName'] ?? 'Anonymous User',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 17,
-                                    color: primaryGreen),
+                                style: AppTheme.titleMedium.copyWith(
+                                  color: AppTheme.primaryGreen,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 formattedDate,
-                                style: TextStyle(
-                                    fontSize: 12, color: Colors.grey[500]),
+                                style: AppTheme.bodySmall,
                               ),
                             ],
                           ),
@@ -511,14 +569,16 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                           children: [
                             Text(
                               '${(review['rating'] as num?)?.toStringAsFixed(1) ?? 'N/A'}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Colors.black87),
+                              style: AppTheme.titleMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             const SizedBox(width: 4),
-                            Icon(Icons.star_rounded,
-                                color: accentYellow, size: 24),
+                            Icon(
+                              Icons.star_rounded,
+                              color: AppTheme.accentYellow,
+                              size: 24,
+                            ),
                           ],
                         ),
                       ],
@@ -526,8 +586,10 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                     const Divider(height: 20, thickness: 1),
                     Text(
                       review['comment'] ?? 'No comment provided.',
-                      style: TextStyle(
-                          fontSize: 15, color: Colors.grey[800], height: 1.4),
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textPrimary,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -539,14 +601,194 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
     );
   }
 
-  void _navigateToReviewForm() {
+  // ==================== NAVIGATE TO REVIEW FORM ====================
+  void _navigateToReviewForm(String businessName) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => UserReviewForm(
           establishmentId: widget.establishmentId,
-          establishmentName: widget.establishmentName,
+          establishmentName: businessName,
         ),
       ),
+    );
+  }
+
+  // ==================== BUILD METHOD ====================
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(widget.establishmentId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        // Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Loading Details'),
+            ),
+            body: Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+            ),
+          );
+        }
+
+        // Error or not found state
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Error'),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppTheme.errorRed,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Business not found.',
+                    style: AppTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Get business data
+        var data = snapshot.data!.data() as Map<String, dynamic>;
+        final String businessName = data['businessName'] ?? 'Unnamed Business';
+        final String businessType = data['businessType'] ?? 'Restaurant';
+        final String? logoUrl = data['logoUrl'];
+        final String description = data['description'] ?? 'No description available.';
+
+        return Scaffold(
+          backgroundColor: AppTheme.backgroundColor,
+          body: CustomScrollView(
+            slivers: [
+              // App Bar with Bookmark Button
+              SliverAppBar(
+                pinned: true,
+                title: Text(
+                  businessName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                actions: [
+                  // Bookmark button in app bar
+                  StreamBuilder<bool>(
+                    stream: _bookmarkService.watchBookmarkStatus(widget.establishmentId),
+                    builder: (context, snapshot) {
+                      final isBookmarked = snapshot.data ?? false;
+                      
+                      return IconButton(
+                        icon: Icon(
+                          isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        ),
+                        tooltip: isBookmarked ? 'Remove bookmark' : 'Add bookmark',
+                        onPressed: () => _handleBookmarkTap(businessName, businessType),
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+              // Content
+              SliverList(
+                delegate: SliverChildListDelegate(
+                  [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+
+                          // Logo + Name
+                          Align(
+                            alignment: Alignment.center,
+                            child: Column(
+                              children: [
+                                _buildLogo(logoUrl),
+                                const SizedBox(height: 10),
+                                Text(
+                                  businessName,
+                                  style: AppTheme.headingMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+                          _buildRatingAndReviewInfo(),
+                          const SizedBox(height: 24),
+
+                          // Description
+                          Text(
+                            description,
+                            style: AppTheme.bodyLarge.copyWith(
+                              color: AppTheme.textSecondary,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Information Section
+                          _buildSectionTitle('Information', Icons.info_outline),
+                          const SizedBox(height: 16),
+                          _buildDetailsCard(data),
+                          const SizedBox(height: 32),
+
+                          // Menu Items Section
+                          _buildSectionTitle('Menu Items', Icons.menu_book),
+                          const SizedBox(height: 16),
+                          _buildMenuItemsList(),
+                          const SizedBox(height: 32),
+
+                          // Reviews Section
+                          _buildSectionTitle(
+                            'Customer Reviews',
+                            Icons.rate_review,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildReviewsList(),
+                          const SizedBox(height: 100),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _navigateToReviewForm(businessName),
+            label: const Text(
+              'Write a Review',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            icon: const Icon(Icons.edit_note, size: 28),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30.0),
+            ),
+            elevation: 10,
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        );
+      },
     );
   }
 }

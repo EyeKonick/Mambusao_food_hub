@@ -1,9 +1,27 @@
+// lib/business_dashboard.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'establishments_page.dart';
-import 'menu_items_page.dart';
 
+// Import config and theme
+import 'config/app_config.dart';
+import 'config/app_theme.dart';
+
+// Import pages
+import 'menu_items_page.dart';
+import 'admin_dashboard_page.dart';
+
+/// Business Dashboard Page
+/// 
+/// Main control center for business owners to:
+/// - View their business statistics
+/// - Manage menu items
+/// - View customer reviews
+/// - Edit business profile
+/// 
+/// Note: Since one account = one business, this dashboard manages
+/// the single business associated with the logged-in user
 class BusinessDashboardPage extends StatefulWidget {
   const BusinessDashboardPage({super.key});
 
@@ -12,16 +30,18 @@ class BusinessDashboardPage extends StatefulWidget {
 }
 
 class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
+  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Current user
   User? _currentUser;
-  String _currentBusinessName = 'Loading...';
-
-  static const Color primaryGreen = Color(0xFF1B5E20); // A dark forest green
-  static const Color secondaryGreen = Color(0xFF4CAF50);
-  static const Color accentColor = Color(0xFF00C853);
-  static const Color cardColor = Color(0xFFFFFFFF);
-  static const Color backgroundColor = Color(0xFFF0F0F0);
+  
+  // Business data
+  String _businessName = 'Loading...';
+  String _businessType = '';
+  String _approvalStatus = 'pending';
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -32,221 +52,582 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
     }
   }
 
+  // ==================== DATA FETCHING ====================
+
+  /// Fetch business data from Firestore
   Future<void> _fetchBusinessData() async {
     try {
-      DocumentSnapshot businessDoc = await _firestore.collection('businesses').doc(_currentUser!.uid).get();
-      if (businessDoc.exists) {
+      // Get business document using user's ID
+      DocumentSnapshot businessDoc = await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(_currentUser!.uid)
+          .get();
+
+      if (!businessDoc.exists) {
         setState(() {
-          _currentBusinessName = (businessDoc.data() as Map<String, dynamic>)['businessName'] ?? 'No Name';
+          _businessName = 'No Business Found';
+          _isLoading = false;
         });
+        return;
       }
-    } catch (e) {
-      print('Error fetching business data: $e');
+
+      // Extract data from document
+      final data = businessDoc.data() as Map<String, dynamic>;
+
       setState(() {
-        _currentBusinessName = 'Error loading name';
+        _businessName = data['businessName'] ?? 'Unnamed Business';
+        _businessType = data['businessType'] ?? '';
+        _approvalStatus = data['approvalStatus'] ?? 'pending';
+        _isLoading = false;
+      });
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('Business loaded: $_businessName');
+        debugPrint('Approval status: $_approvalStatus');
+      }
+      
+    } catch (e) {
+      debugPrint('Error fetching business data: $e');
+      setState(() {
+        _businessName = 'Error Loading Business';
+        _isLoading = false;
       });
     }
   }
 
+  /// Check if current user is an admin
+  Future<bool> _checkIfAdmin() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+      
+      final adminDoc = await _firestore
+          .collection('admins')
+          .doc(user.uid)
+          .get();
+      
+      return adminDoc.exists && adminDoc.data()?['isAdmin'] == true;
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('Error checking admin status: $e');
+      }
+      return false;
+    }
+  }
+
+  // ==================== UI BUILD METHOD ====================
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Dashboard'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (AppConfig.requireBusinessApproval && _approvalStatus == 'pending') {
+      return _buildPendingApprovalScreen();
+    }
+
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('Dashboard: $_currentBusinessName'),
-        backgroundColor: primaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: primaryGreen,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.business, size: 40, color: primaryGreen),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _currentBusinessName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    _currentUser?.email ?? 'N/A',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _buildDrawerTile(Icons.home, 'Dashboard', () => Navigator.pop(context)),
-            _buildDrawerTile(Icons.store, 'My Establishments', () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const EstablishmentsPage()),
+        title: Text(_businessName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Notifications coming soon!')),
               );
-            }),
-            _buildDrawerTile(Icons.fastfood, 'My Menu Items', () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MenuItemsPage()),
-              );
-            }),
-            _buildDrawerTile(Icons.reviews, 'Customer Reviews', () {
-              Navigator.pop(context);
-              // TODO: Navigate to reviews page
-            }),
-            _buildDrawerTile(Icons.analytics, 'Analytics', () {
-              Navigator.pop(context);
-              // TODO: Navigate to analytics page
-            }),
-            const Divider(),
-            _buildDrawerTile(Icons.logout, 'Logout', () async {
-              await _auth.signOut();
-              if (!mounted) return;
-              Navigator.of(context).pushReplacementNamed('/');
-            }),
-          ],
-        ),
+            },
+          ),
+          // Admin panel button (only shows if user is admin)
+          FutureBuilder<bool>(
+            future: _checkIfAdmin(),
+            builder: (context, snapshot) {
+              if (snapshot.data == true) {
+                return IconButton(
+                  icon: const Icon(Icons.admin_panel_settings),
+                  tooltip: 'Admin Panel',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminDashboardPage(),
+                      ),
+                    );
+                  },
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dashboard Overview',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryGreen),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.0, // Make cards square
-                children: <Widget>[
-                  _buildDashboardCard(
-                    icon: Icons.visibility,
-                    label: 'Total Views',
-                    subLabel: '0,000', // Placeholder data
-                    onTap: () {
-                      // TODO: Navigate to views analytics
-                    },
-                  ),
-                  _buildDashboardCard(
-                    icon: Icons.bookmark,
-                    label: 'Bookmarks',
-                    subLabel: '000', // Placeholder data
-                    onTap: () {
-                      // TODO: Navigate to bookmarks list
-                    },
-                  ),
-                  _buildDashboardCard(
-                    icon: Icons.store,
-                    label: 'My Establishments',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const EstablishmentsPage()),
-                      );
-                    },
-                  ),
-                  _buildDashboardCard(
-                    icon: Icons.fastfood,
-                    label: 'My Menu Items',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const MenuItemsPage()),
-                      );
-                    },
-                  ),
-                  _buildDashboardCard(
-                    icon: Icons.reviews,
-                    label: 'Customer Reviews',
-                    onTap: () {
-                      // TODO: Navigate to reviews page
-                    },
-                  ),
-                  _buildDashboardCard(
-                    icon: Icons.analytics,
-                    label: 'Analytics',
-                    onTap: () {
-                      // TODO: Navigate to analytics page
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerTile(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: primaryGreen),
-      title: Text(title),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildDashboardCard({
-    required IconData icon,
-    required String label,
-    String? subLabel,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
+      drawer: _buildDrawer(),
+      body: RefreshIndicator(
+        onRefresh: _fetchBusinessData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 40, color: primaryGreen),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              if (subLabel != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subLabel,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: accentColor),
-                ),
-              ],
+              _buildWelcomeCard(),
+              const SizedBox(height: 24),
+              _buildStatisticsSection(),
+              const SizedBox(height: 24),
+              Text('Quick Actions', style: AppTheme.headingMedium),
+              const SizedBox(height: 16),
+              _buildQuickActionsGrid(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // ==================== PENDING APPROVAL SCREEN ====================
+
+  Widget _buildPendingApprovalScreen() {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Pending Approval'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentYellow.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.hourglass_empty,
+                  size: 80,
+                  color: AppTheme.accentYellow,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Waiting for Approval',
+                style: AppTheme.headingLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Your business registration is being reviewed by our admin team. This usually takes 24-48 hours.',
+                style: AppTheme.bodyLarge.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Your Business Details', style: AppTheme.headingSmall),
+                      const SizedBox(height: 12),
+                      _buildInfoRow(Icons.business, 'Name', _businessName),
+                      _buildInfoRow(Icons.category, 'Type', _businessType),
+                      _buildInfoRow(Icons.email, 'Email', _currentUser?.email ?? 'N/A'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: _fetchBusinessData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Check Status'),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () async {
+                  await _auth.signOut();
+                  if (!mounted) return;
+                  Navigator.of(context).pushReplacementNamed('/');
+                },
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppTheme.primaryGreen),
+          const SizedBox(width: 12),
+          Text(
+            '$label: ',
+            style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+          ),
+          Expanded(
+            child: Text(value, style: AppTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== DASHBOARD COMPONENTS ====================
+
+  Widget _buildWelcomeCard() {
+    return Card(
+      color: AppTheme.primaryGreen,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.business,
+                size: 30,
+                color: AppTheme.primaryGreen,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back!',
+                    style: AppTheme.bodyMedium.copyWith(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _businessName,
+                    style: AppTheme.headingMedium.copyWith(color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (_businessType.isNotEmpty)
+                    Text(
+                      _businessType,
+                      style: AppTheme.bodySmall.copyWith(color: Colors.white70),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatisticsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Overview', style: AppTheme.headingMedium),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                icon: Icons.visibility,
+                label: 'Views',
+                value: '0',
+                color: AppTheme.accentBlue,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                icon: Icons.star,
+                label: 'Rating',
+                value: '0.0',
+                color: AppTheme.accentYellow,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                icon: Icons.bookmark,
+                label: 'Bookmarks',
+                value: '0',
+                color: AppTheme.secondaryGreen,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                icon: Icons.rate_review,
+                label: 'Reviews',
+                value: '0',
+                color: AppTheme.primaryGreen,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: AppTheme.headingMedium.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              label,
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionsGrid() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.2,
+      children: [
+        _buildActionCard(
+          icon: Icons.fastfood,
+          label: 'Manage Menu',
+          color: AppTheme.secondaryGreen,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MenuItemsPage()),
+            );
+          },
+        ),
+        _buildActionCard(
+          icon: Icons.edit,
+          label: 'Edit Profile',
+          color: AppTheme.accentBlue,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Edit profile coming soon!')),
+            );
+          },
+        ),
+        _buildActionCard(
+          icon: Icons.rate_review,
+          label: 'Customer Reviews',
+          color: AppTheme.accentYellow,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Reviews section coming soon!')),
+            );
+          },
+        ),
+        _buildActionCard(
+          icon: Icons.analytics,
+          label: 'Analytics',
+          color: AppTheme.primaryGreen,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Analytics coming soon!')),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 40, color: color),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== DRAWER ====================
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(color: AppTheme.primaryGreen),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    Icons.business,
+                    size: 30,
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _businessName,
+                  style: AppTheme.headingSmall.copyWith(color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _currentUser?.email ?? 'N/A',
+                  style: AppTheme.bodySmall.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerTile(
+                  icon: Icons.dashboard,
+                  title: 'Dashboard',
+                  onTap: () => Navigator.pop(context),
+                ),
+                _buildDrawerTile(
+                  icon: Icons.fastfood,
+                  title: 'Manage Menu',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const MenuItemsPage()),
+                    );
+                  },
+                ),
+                _buildDrawerTile(
+                  icon: Icons.rate_review,
+                  title: 'Customer Reviews',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Reviews coming soon!')),
+                    );
+                  },
+                ),
+                _buildDrawerTile(
+                  icon: Icons.analytics,
+                  title: 'Analytics',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Analytics coming soon!')),
+                    );
+                  },
+                ),
+                const Divider(),
+                _buildDrawerTile(
+                  icon: Icons.settings,
+                  title: 'Settings',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Settings coming soon!')),
+                    );
+                  },
+                ),
+                _buildDrawerTile(
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Help coming soon!')),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          _buildDrawerTile(
+            icon: Icons.logout,
+            title: 'Logout',
+            onTap: () async {
+              await _auth.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pushReplacementNamed('/');
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.primaryGreen),
+      title: Text(title),
+      onTap: onTap,
     );
   }
 }

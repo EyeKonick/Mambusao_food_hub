@@ -1,8 +1,15 @@
-import 'package:flutter/material.dart';
-import 'business_auth_page.dart'; // Import the new file
-import 'home_page.dart'; // Import the new file
+// lib/explore.dart
 
-// A StatefulWidget is needed to manage the loading state
+import 'package:flutter/material.dart';
+import 'config/app_theme.dart';
+import 'business_auth_page.dart';
+import 'home_page.dart';
+
+/// Landing Page - First screen users see
+/// 
+/// This page offers two paths:
+/// 1. Explore Mambusao (for customers/users)
+/// 2. Business Owner Login/Registration
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
 
@@ -11,138 +18,252 @@ class ExplorePage extends StatefulWidget {
 }
 
 class _ExplorePageState extends State<ExplorePage> {
+  // Loading states for buttons
   bool _isLoadingExplore = false;
   bool _isLoadingBusiness = false;
 
-  // Define the new storyboard colors
-  static const Color primaryGreen = Color(0xFF1B5E20); // A dark forest green
-  static const Color secondaryGreen = Color(0xFF4CAF50); // A brighter green for accents
+  // ==================== NAVIGATION HANDLERS ====================
+
+  /// Navigate to Home Page (for customers)
+  Future<void> _navigateToHomePage() async {
+    setState(() {
+      _isLoadingExplore = true;
+    });
+
+    // Small delay for smooth UX
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const HomePage()),
+    );
+
+    // Reset loading state after returning
+    if (mounted) {
+      setState(() {
+        _isLoadingExplore = false;
+      });
+    }
+  }
+
+  /// Navigate to Business Auth Page (for business owners)
+  Future<void> _navigateToBusinessAuth() async {
+    setState(() {
+      _isLoadingBusiness = true;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BusinessAuthPage()),
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoadingBusiness = false;
+      });
+    }
+  }
+
+  // ==================== BUILD METHOD ====================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Set the background color to match the storyboard
       backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              // MamFood Hub Logo
-              Image.asset('assets/logo.png', height: 120),
-              const SizedBox(height: 32),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Logo
+                Image.asset('assets/logo.png', height: 120),
+                const SizedBox(height: 32),
 
-              const Text(
-                'Explore Mambusao',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: primaryGreen, // Use the new primary green color
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Your Mambusao food trip starts here.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black54,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
-
-              // Button to navigate to the Home Page
-              ElevatedButton(
-                onPressed: _isLoadingExplore ? null : () async {
-                  setState(() {
-                    _isLoadingExplore = true;
-                  });
-                  // Simulate a delay for a smoother user experience
-                  await Future.delayed(const Duration(milliseconds: 500)); 
-                  
-                  if (mounted) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HomePage()),
-                    );
-                  }
-                  
-                  // Reset loading state after navigation
-                  if (mounted) {
-                    setState(() {
-                      _isLoadingExplore = false;
-                    });
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryGreen, // Use the new primary green color
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                // Main Heading
+                Text(
+                  'Explore Mambusao',
+                  style: AppTheme.headingLarge.copyWith(
+                    color: AppTheme.primaryGreen,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                child: _isLoadingExplore
-                    ? const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      )
-                    : const Text(
-                        'Explore Mambusao',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
-              // Button for business owners
-              TextButton(
-                onPressed: _isLoadingBusiness ? null : () async {
-                  setState(() {
-                    _isLoadingBusiness = true;
-                  });
-                  await Future.delayed(const Duration(milliseconds: 500));
+                // Subtitle
+                Text(
+                  'Your Mambusao food trip starts here.',
+                  style: AppTheme.bodyLarge.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 48),
 
-                  if (mounted) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const BusinessAuthPage()),
-                    );
-                  }
-                  
-                  if (mounted) {
-                    setState(() {
-                      _isLoadingBusiness = false;
-                    });
-                  }
-                },
-                child: _isLoadingBusiness
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: primaryGreen, // Use the new primary green color
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'I am a business owner',
-                        style: TextStyle(
-                          color: primaryGreen, // Use the new primary green color
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-            ],
+                // Primary Button - Explore
+                _buildExploreButton(),
+                const SizedBox(height: 16),
+
+                // Secondary Button - Business Owner
+                _buildBusinessOwnerButton(),
+                const SizedBox(height: 32),
+
+                // Footer Info
+                _buildFooterInfo(),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  // ==================== UI COMPONENTS ====================
+
+  /// Primary explore button
+  Widget _buildExploreButton() {
+    return ElevatedButton(
+      onPressed: _isLoadingExplore ? null : _navigateToHomePage,
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: _isLoadingExplore
+          ? const SizedBox(
+              height: 24,
+              width: 24,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.restaurant_menu, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  'Explore Mambusao',
+                  style: AppTheme.titleMedium.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  /// Business owner button
+  Widget _buildBusinessOwnerButton() {
+    return OutlinedButton(
+      onPressed: _isLoadingBusiness ? null : _navigateToBusinessAuth,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 56),
+        side: BorderSide(
+          color: AppTheme.primaryGreen,
+          width: 2,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: _isLoadingBusiness
+          ? SizedBox(
+              height: 24,
+              width: 24,
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
+                strokeWidth: 3,
+              ),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.business_center,
+                  size: 24,
+                  color: AppTheme.primaryGreen,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'I am a business owner',
+                  style: AppTheme.titleMedium.copyWith(
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  /// Footer information
+  Widget _buildFooterInfo() {
+    return Column(
+      children: [
+        // Features highlight
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildFeatureChip(Icons.search, 'Discover'),
+            _buildFeatureChip(Icons.bookmark, 'Bookmark'),
+            _buildFeatureChip(Icons.rate_review, 'Review'),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Version info
+        Text(
+          'MamFood Hub',
+          style: AppTheme.bodySmall.copyWith(
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Connecting you with local flavors',
+          style: AppTheme.bodySmall.copyWith(
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Feature chip widget
+  Widget _buildFeatureChip(IconData icon, String label) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            color: AppTheme.primaryGreen,
+            size: 24,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: AppTheme.bodySmall.copyWith(
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }

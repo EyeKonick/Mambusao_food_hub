@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'config/app_config.dart';
+import 'config/app_theme.dart';
+import 'user_auth_page.dart';
 
 class UserReviewForm extends StatefulWidget {
   final String establishmentId;
@@ -17,18 +20,24 @@ class UserReviewForm extends StatefulWidget {
 }
 
 class _UserReviewFormState extends State<UserReviewForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _reviewController = TextEditingController();
-  double _rating = 0.0;
-  bool _isLoading = false;
+  // ==================== FIREBASE INSTANCES ====================
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // --- Aesthetic Colors ---
-  static const Color primaryDarkGreen = Color(0xFF1B5E20);
-  static const Color accentLightGreen = Color(0xFF66BB6A); // Lighter accent
-  static const Color starGold = Colors.amber;
-  static const Color fieldBackground = Color(0xFFF0F4F8); // Very light grey-blue for fields
+  // ==================== FORM STATE ====================
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _reviewController = TextEditingController();
+  
+  double _rating = 3.0;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
 
   @override
   void dispose() {
@@ -38,261 +47,458 @@ class _UserReviewFormState extends State<UserReviewForm> {
     super.dispose();
   }
 
-  // A helper function to get a descriptive text for the rating
-  String _getRatingDescription(double rating) {
-    if (rating == 0.0) {
-      return 'Tap a star to rate!';
-    } else if (rating >= 4.5) {
-      return 'Excellent!';
-    } else if (rating >= 3.5) {
-      return 'Very Good';
-    } else if (rating >= 2.5) {
-      return 'Good';
-    } else if (rating >= 1.5) {
-      return 'Fair';
-    } else {
-      return 'Poor';
-    }
-  }
-
-  Future<void> _submitReview() async {
-    // Add validation for rating being selected
-    if (_rating == 0.0) {
-       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a rating before submitting.')),
-        );
-        return;
-    }
-
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
+  // ==================== LOAD USER DATA ====================
+  Future<void> _loadUserData() async {
+    final user = _auth.currentUser;
+    
+    // Check if user is authenticated (not anonymous)
+    if (user != null && !user.isAnonymous) {
+      // Load user data from Firestore
       try {
-        await FirebaseFirestore.instance
-            .collection('establishments')
-            .doc(widget.establishmentId)
-            .collection('reviews')
-            .add({
-          'establishmentId': widget.establishmentId,
-          'name': _nameController.text,
-          'email': _emailController.text,
-          'rating': _rating,
-          'comment': _reviewController.text,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-
-        if (!mounted) return;
-        Navigator.pop(context); // Close the review form
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Review submitted successfully!')),
-        );
+        final userDoc = await FirebaseFirestore.instance
+            .collection(AppConfig.usersCollection)
+            .doc(user.uid)
+            .get();
+        
+        if (userDoc.exists) {
+          final data = userDoc.data() as Map<String, dynamic>;
+          setState(() {
+            _nameController.text = data['name'] ?? user.displayName ?? '';
+            _emailController.text = data['email'] ?? user.email ?? '';
+          });
+        } else {
+          // Fallback to Firebase Auth data
+          setState(() {
+            _nameController.text = user.displayName ?? '';
+            _emailController.text = user.email ?? '';
+          });
+        }
+        
+        if (AppConfig.enableDebugMode) {
+          debugPrint('✓ User data loaded for review form');
+        }
       } catch (e) {
-        print('Error submitting review: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to submit review. Please try again.')),
-        );
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (AppConfig.enableDebugMode) {
+          debugPrint('Error loading user data: $e');
+        }
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50], // Light background for contrast
-      appBar: AppBar(
-        title: Text(
-          'Review ${widget.establishmentName}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: primaryDarkGreen,
-        foregroundColor: Colors.white,
-        elevation: 4, // Subtle shadow for AppBar
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Card(
-            elevation: 8, // Prominent card shadow
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+  // ==================== CHECK FOR EXISTING REVIEW ====================
+  Future<bool> _checkExistingReview() async {
+    final user = _auth.currentUser;
+    
+    // Only check for authenticated users (not anonymous)
+    if (user == null || user.isAnonymous) {
+      return false; // Allow anonymous users to submit (for now)
+    }
+
+    try {
+      final existingReview = await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(widget.establishmentId)
+          .collection(AppConfig.reviewsSubcollection)
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+
+      return existingReview.docs.isNotEmpty;
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('Error checking existing review: $e');
+      }
+      return false;
+    }
+  }
+
+  // ==================== SUBMIT REVIEW ====================
+  Future<void> _submitReview() async {
+    final user = _auth.currentUser;
+    
+    // CRITICAL: Require authentication for reviews
+    if (user == null || user.isAnonymous) {
+      // Show dialog prompting user to sign in
+      final shouldSignIn = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Sign In Required'),
+          content: const Text(
+            'You need to create an account or sign in to write a review. This helps prevent spam and allows you to manage your reviews.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // --- 1. Rating Section (The focal point) ---
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: fieldBackground,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            _rating == 0.0 ? 'Your Rating' : _rating.toStringAsFixed(1),
-                            style: TextStyle(
-                              fontSize: 54,
-                              fontWeight: FontWeight.w900,
-                              color: primaryDarkGreen,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _getRatingDescription(_rating),
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: primaryDarkGreen.withOpacity(0.8),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          RatingBar.builder(
-                            initialRating: _rating,
-                            minRating: 0.5, // Start rating at 0.5 minimum
-                            direction: Axis.horizontal,
-                            allowHalfRating: true,
-                            itemCount: 5,
-                            itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
-                            itemBuilder: (context, _) => const Icon(
-                              Icons.star_rounded,
-                              color: starGold,
-                              size: 38,
-                            ),
-                            onRatingUpdate: (rating) {
-                              setState(() {
-                                _rating = rating;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sign In'),
+            ),
+          ],
+        ),
+      );
 
-                    // --- 2. Form Fields ---
-                    _buildTextField(
-                      controller: _nameController,
-                      label: 'Your Name',
-                      hint: 'e.g. Alex Johnson',
-                      icon: Icons.person_outline_rounded,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your name.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _emailController,
-                      label: 'Your Email',
-                      hint: 'e.g. alex.j@example.com',
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email.';
-                        }
-                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                          return 'Please enter a valid email address.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _reviewController,
-                      label: 'Your Review',
-                      hint: 'Share your detailed experience...',
-                      icon: Icons.rate_review_outlined,
-                      maxLines: 5,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please write a review.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
+      if (shouldSignIn == true) {
+        if (!mounted) return;
+        // Navigate to sign in page
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserAuthPage()),
+        );
+        
+        // If user successfully signed in, reload user data
+        if (result == true) {
+          await _loadUserData();
+          // Check if they already reviewed this business
+          final hasReviewed = await _checkExistingReview();
+          if (hasReviewed && mounted) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('You have already reviewed this business.'),
+              ),
+            );
+          }
+        }
+      }
+      return;
+    }
 
-                    // --- 3. Submission Button ---
-                    _isLoading
-                        ? const Center(child: CircularProgressIndicator(color: primaryDarkGreen))
-                        : SizedBox(
-                            height: 60,
-                            child: ElevatedButton.icon(
-                              onPressed: _submitReview,
-                              icon: const Icon(Icons.send_rounded),
-                              label: const Text(
-                                'Submit Review',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryDarkGreen,
-                                foregroundColor: Colors.white,
-                                elevation: 8,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30), // Pill shape
-                                ),
-                              ),
-                            ),
-                          ),
-                  ],
+    // Validate form
+    if (!_formKey.currentState!.validate()) return;
+    if (_rating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a rating')),
+      );
+      return;
+    }
+
+    // Check for existing review
+    final hasReviewed = await _checkExistingReview();
+    if (hasReviewed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You have already reviewed this business. You can only review once.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(widget.establishmentId)
+          .collection(AppConfig.reviewsSubcollection)
+          .add({
+        'userId': user.uid,
+        'reviewerName': _nameController.text.trim(),
+        'reviewerEmail': _emailController.text.trim(),
+        'rating': _rating,
+        'comment': _reviewController.text.trim(),
+        'timestamp': FieldValue.serverTimestamp(),
+        'isReported': false,
+      });
+
+      if (!mounted) return;
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Thank you for your review!'),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+
+      // Go back
+      Navigator.of(context).pop();
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to submit review: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('Error submitting review: $e');
+      }
+    }
+  }
+
+  // ==================== BUILD RATING STARS ====================
+  Widget _buildRatingStars() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Your Rating',
+          style: AppTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (int i = 1; i <= 5; i++)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _rating = i.toDouble();
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    i <= _rating ? Icons.star : Icons.star_border,
+                    size: 48,
+                    color: AppTheme.accentYellow,
+                  ),
                 ),
               ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            _getRatingText(_rating),
+            style: AppTheme.bodyLarge.copyWith(
+              color: AppTheme.primaryGreen,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
-  // Helper method for consistent TextFormField styling
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: fieldBackground,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none, // Hide the default border
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: accentLightGreen, width: 2), // Highlight focus
-        ),
-        prefixIcon: Icon(icon, color: primaryDarkGreen.withOpacity(0.7)),
-        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+  // ==================== GET RATING TEXT ====================
+  String _getRatingText(double rating) {
+    if (rating >= 5) return 'Excellent!';
+    if (rating >= 4) return 'Very Good';
+    if (rating >= 3) return 'Good';
+    if (rating >= 2) return 'Fair';
+    return 'Poor';
+  }
+
+  // ==================== BUILD METHOD ====================
+  @override
+  Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+    final isAuthenticated = user != null && !user.isAnonymous;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Write a Review'),
       ),
-      validator: validator,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Business Name
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.restaurant,
+                        color: AppTheme.primaryGreen,
+                        size: 32,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Reviewing',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.establishmentName,
+                              style: AppTheme.titleMedium.copyWith(
+                                color: AppTheme.primaryGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Authentication status banner
+              if (!isAuthenticated) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warningOrange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.warningOrange),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: AppTheme.warningOrange),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Sign in required to submit a review',
+                          style: TextStyle(color: AppTheme.warningOrange),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Rating Section
+              _buildRatingStars(),
+              const SizedBox(height: 32),
+
+              // Name Field
+              Text(
+                'Your Name',
+                style: AppTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter your name',
+                  prefixIcon: Icon(Icons.person),
+                ),
+                enabled: isAuthenticated,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Email Field
+              Text(
+                'Your Email',
+                style: AppTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: 'Enter your email',
+                  prefixIcon: Icon(Icons.email),
+                ),
+                enabled: isAuthenticated,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Review Field
+              Text(
+                'Your Review',
+                style: AppTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _reviewController,
+                maxLines: 6,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  hintText: 'Share your experience...',
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please write your review';
+                  }
+                  if (value.trim().length < 10) {
+                    return 'Review must be at least 10 characters';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 32),
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitReview,
+                  child: _isSubmitting
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('Submitting...'),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(isAuthenticated ? Icons.send : Icons.login),
+                            const SizedBox(width: 8),
+                            Text(
+                              isAuthenticated ? 'Submit Review' : 'Sign In to Submit',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Privacy Note
+              Center(
+                child: Text(
+                  'Your review will be publicly visible',
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
