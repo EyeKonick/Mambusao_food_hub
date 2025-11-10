@@ -1,9 +1,13 @@
 // lib/business_auth_page.dart
 
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
 // Import our config and theme
 import 'config/app_config.dart';
@@ -16,6 +20,7 @@ import 'business_dashboard.dart';
 /// - Business owner login
 /// - Business registration (sign up)
 /// - One account = One business/restaurant
+/// - Logo upload to Cloudinary
 /// - Location capture for distance calculations
 class BusinessAuthPage extends StatefulWidget {
   const BusinessAuthPage({super.key});
@@ -66,6 +71,11 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
   Position? _businessLocation;
   bool _isGettingLocation = false;
   String? _locationError;
+  
+  /// Logo upload state
+  File? _selectedLogo;
+  bool _isUploadingLogo = false;
+  String? _uploadedLogoUrl;
   
   /// List of available business categories
   static const List<String> _businessCategories = [
@@ -118,6 +128,173 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
     });
   }
 
+  // ==================== LOGO UPLOAD ====================
+  
+  /// Pick logo image from gallery
+  Future<void> _pickLogoImage() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedLogo = File(pickedFile.path);
+          _uploadedLogoUrl = null; // Clear previous upload
+        });
+
+        if (AppConfig.enableDebugMode) {
+          debugPrint('✓ Logo selected: ${pickedFile.path}');
+        }
+      }
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✗ Error picking logo: $e');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Upload logo to Cloudinary
+    Future<String?> _uploadLogoToCloudinary(File imageFile) async {
+      setState(() {
+        _isUploadingLogo = true;
+      });
+
+      try {
+        // Validate file size
+        final fileSize = await imageFile.length();
+        
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('📤 CLOUDINARY UPLOAD DEBUG');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('File path: ${imageFile.path}');
+        debugPrint('File size: ${fileSize} bytes (${(fileSize / 1024).toStringAsFixed(2)} KB)');
+        debugPrint('Max allowed: ${AppConfig.maxImageSizeBytes} bytes');
+        debugPrint('Size valid: ${AppConfig.isValidImageSize(fileSize)}');
+        
+        if (!AppConfig.isValidImageSize(fileSize)) {
+          throw Exception(
+            'Image too large. Max size: ${AppConfig.maxImageSizeBytes ~/ (1024 * 1024)}MB'
+          );
+        }
+
+        // Prepare request
+        final url = Uri.parse(AppConfig.cloudinaryApiUrl);
+        
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('🔧 REQUEST CONFIGURATION');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('API URL: ${AppConfig.cloudinaryApiUrl}');
+        debugPrint('Cloud Name: ${AppConfig.cloudinaryCloudName}');
+        debugPrint('Upload Preset: ${AppConfig.cloudinaryUploadPreset}');
+        debugPrint('Folder: ${AppConfig.cloudinaryEstablishmentLogoFolder}');
+        
+        var request = http.MultipartRequest('POST', url);
+
+        // Add required fields
+        request.fields['upload_preset'] = AppConfig.cloudinaryUploadPreset;
+        request.fields['folder'] = AppConfig.cloudinaryEstablishmentLogoFolder;
+
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('📦 REQUEST FIELDS');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        request.fields.forEach((key, value) {
+          debugPrint('$key: $value');
+        });
+
+        // Add file
+        final multipartFile = await http.MultipartFile.fromPath('file', imageFile.path);
+        request.files.add(multipartFile);
+        
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('📎 FILE INFO');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('Field name: file');
+        debugPrint('Filename: ${multipartFile.filename}');
+        debugPrint('Content type: ${multipartFile.contentType}');
+        debugPrint('Length: ${multipartFile.length} bytes');
+
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('🚀 SENDING REQUEST...');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        // Send request
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('📥 RESPONSE RECEIVED');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('Status Code: ${response.statusCode}');
+        debugPrint('Status: ${response.statusCode == 200 ? "✓ SUCCESS" : "✗ FAILED"}');
+        debugPrint('Response Body:');
+        debugPrint(response.body);
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        if (response.statusCode == 200) {
+          final responseData = json.decode(response.body);
+          final imageUrl = responseData['secure_url'] as String;
+          
+          setState(() {
+            _uploadedLogoUrl = imageUrl;
+            _isUploadingLogo = false;
+          });
+
+          debugPrint('✓ Logo URL: $imageUrl');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Logo uploaded successfully!'),
+                backgroundColor: AppTheme.successGreen,
+              ),
+            );
+          }
+          
+          return imageUrl;
+        } else {
+          throw Exception('Upload failed with status ${response.statusCode}: ${response.body}');
+        }
+      } catch (e, stackTrace) {
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('❌ ERROR OCCURRED');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('Error: $e');
+        debugPrint('Stack trace: $stackTrace');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        setState(() {
+          _isUploadingLogo = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to upload logo: $e'),
+              backgroundColor: AppTheme.errorRed,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+
+        return null;
+      }
+    }
+  
+ 
   // ==================== LOCATION CAPTURE ====================
   
   /// Capture business location using GPS
@@ -186,7 +363,7 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to get location: ${e.toString()}'),
-            backgroundColor: AppTheme.accentRed,
+            backgroundColor: AppTheme.errorRed,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -257,6 +434,17 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
   }
 
   Future<void> _performSignUp() async {
+    // Upload logo first if selected
+    String? logoUrl;
+    if (_selectedLogo != null && _uploadedLogoUrl == null) {
+      logoUrl = await _uploadLogoToCloudinary(_selectedLogo!);
+      if (logoUrl == null) {
+        throw Exception('Failed to upload logo. Please try again.');
+      }
+    } else {
+      logoUrl = _uploadedLogoUrl;
+    }
+
     UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -264,7 +452,7 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
 
     await userCredential.user!.updateDisplayName(_fullNameController.text.trim());
 
-    // Create business profile with location data
+    // Create business profile with logo and location data
     await _firestore
         .collection(AppConfig.businessesCollection)
         .doc(userCredential.user!.uid)
@@ -278,9 +466,9 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
       'businessName': _restaurantNameController.text.trim(),
       'businessAddress': _restaurantAddressController.text.trim(),
       'businessType': _businessType,
-      'logoUrl': null,
+      'logoUrl': logoUrl,
       
-      // Location Data (NEW)
+      // Location Data
       'latitude': _businessLocation?.latitude,
       'longitude': _businessLocation?.longitude,
       'hasLocation': _businessLocation != null,
@@ -347,7 +535,7 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
                 if (_errorMessage.isNotEmpty) _buildErrorMessage(),
 
                 if (!_isLogin) ...[
-                  _buildLogoPlaceholder(),
+                  _buildLogoUploadSection(),
                   const SizedBox(height: 24),
                   _buildSignUpFields(),
                 ] else ...[
@@ -373,18 +561,18 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
       padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
       margin: const EdgeInsets.only(bottom: 16.0),
       decoration: BoxDecoration(
-        color: AppTheme.accentRed.withOpacity(0.1),
+        color: AppTheme.errorRed.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(color: AppTheme.accentRed),
+        border: Border.all(color: AppTheme.errorRed),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: AppTheme.accentRed),
+          Icon(Icons.error_outline, color: AppTheme.errorRed),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _errorMessage,
-              style: TextStyle(color: AppTheme.accentRed),
+              style: TextStyle(color: AppTheme.errorRed),
             ),
           ),
         ],
@@ -392,24 +580,104 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
     );
   }
 
-  Widget _buildLogoPlaceholder() {
+  Widget _buildLogoUploadSection() {
     return Center(
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 60,
-            backgroundColor: AppTheme.lightGreen,
-            child: Icon(
-              Icons.business,
-              size: 40,
-              color: AppTheme.primaryGreen,
+          GestureDetector(
+            onTap: _isUploadingLogo ? null : _pickLogoImage,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 60,
+                  backgroundColor: AppTheme.lightGreen,
+                  backgroundImage: _selectedLogo != null
+                      ? FileImage(_selectedLogo!)
+                      : _uploadedLogoUrl != null
+                          ? NetworkImage(_uploadedLogoUrl!)
+                          : null,
+                  child: (_selectedLogo == null && _uploadedLogoUrl == null)
+                      ? Icon(
+                          Icons.business,
+                          size: 40,
+                          color: AppTheme.primaryGreen,
+                        )
+                      : null,
+                ),
+                if (_isUploadingLogo)
+                  Positioned.fill(
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.black54,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppTheme.primaryGreen,
+                    child: Icon(
+                      _selectedLogo != null || _uploadedLogoUrl != null
+                          ? Icons.edit
+                          : Icons.add_photo_alternate,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 12),
+          Text(
+            _uploadedLogoUrl != null
+                ? 'Logo Uploaded'
+                : _selectedLogo != null
+                    ? 'Tap to upload logo'
+                    : 'Tap to add business logo',
+            style: AppTheme.bodyMedium.copyWith(
+              color: _uploadedLogoUrl != null
+                  ? AppTheme.successGreen
+                  : AppTheme.textSecondary,
+              fontWeight: _uploadedLogoUrl != null
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+            ),
+          ),
+          if (_selectedLogo != null && _uploadedLogoUrl == null) ...[
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _isUploadingLogo
+                  ? null
+                  : () async {
+                      await _uploadLogoToCloudinary(_selectedLogo!);
+                    },
+              icon: _isUploadingLogo
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Icon(Icons.cloud_upload),
+              label: Text(_isUploadingLogo ? 'Uploading...' : 'Upload Now'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.secondaryGreen,
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
-            'Business Logo (Add Later)',
+            'Optional: Add logo now or later from dashboard',
             style: AppTheme.bodySmall.copyWith(
               color: AppTheme.textSecondary,
+              fontStyle: FontStyle.italic,
             ),
           ),
         ],
@@ -567,7 +835,7 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
         _buildBusinessTypeDropdown(),
         const SizedBox(height: 24),
 
-        // NEW: Location Capture Section
+        // Location Capture Section
         _buildLocationCaptureSection(),
       ],
     );
@@ -657,8 +925,6 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
       },
     );
   }
-
-  // NEW: Location Capture UI
   Widget _buildLocationCaptureSection() {
     return Card(
       elevation: 2,
@@ -860,6 +1126,8 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
                 _businessType = null;
                 _businessLocation = null;
                 _locationError = null;
+                _selectedLogo = null;
+                _uploadedLogoUrl = null;
               });
             },
       child: Text(

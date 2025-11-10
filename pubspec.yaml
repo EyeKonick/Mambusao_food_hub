@@ -18,6 +18,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # Maps integration
+  google_maps_flutter: ^2.6.0
+
   # Core Firebase packages (using existing versions)
   firebase_core: ^4.1.0
   firebase_auth: ^6.0.2

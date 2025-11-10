@@ -27,8 +27,9 @@ class AppConfig {
   static const String cloudinaryUploadPreset = 'mamfoodhub_unsigned';
   
   // Cloudinary folders for organizing uploads
-  static const String cloudinaryEstablishmentFolder = 'establishment_logos';
-  static const String cloudinaryMenuItemFolder = 'menu_items';
+  static const String cloudinaryEstablishmentLogoFolder = 'mamfoodhub_images'; // ← ADDED
+  static const String cloudinaryEstablishmentFolder = 'mamfoodhub_images';
+  static const String cloudinaryMenuItemFolder = 'mamfoodhub_images';
   
   // Build the full API URL
   static const String cloudinaryApiUrl = 

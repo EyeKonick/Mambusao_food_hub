@@ -41,6 +41,7 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
   String _businessName = 'Loading...';
   String _businessType = '';
   String _approvalStatus = 'pending';
+  String? _logoUrl;
   bool _isLoading = true;
 
   @override
@@ -78,12 +79,14 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
         _businessName = data['businessName'] ?? 'Unnamed Business';
         _businessType = data['businessType'] ?? '';
         _approvalStatus = data['approvalStatus'] ?? 'pending';
+        _logoUrl = data['logoUrl'];
         _isLoading = false;
       });
 
       if (AppConfig.enableDebugMode) {
         debugPrint('Business loaded: $_businessName');
         debugPrint('Approval status: $_approvalStatus');
+        debugPrint('Logo URL: $_logoUrl');
       }
       
     } catch (e) {
@@ -181,11 +184,9 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
             children: [
               _buildWelcomeCard(),
               const SizedBox(height: 24),
-              _buildStatisticsSection(),
-              const SizedBox(height: 24),
-              Text('Quick Actions', style: AppTheme.headingMedium),
+              Text('Overview', style: AppTheme.headingMedium),
               const SizedBox(height: 16),
-              _buildQuickActionsGrid(),
+              _buildModulesGrid(),
             ],
           ),
         ),
@@ -299,15 +300,22 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
         padding: const EdgeInsets.all(20.0),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.business,
-                size: 30,
-                color: AppTheme.primaryGreen,
-              ),
-            ),
+            // Display logo if available, otherwise show default icon
+            _logoUrl != null && _logoUrl!.isNotEmpty
+                ? CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.white,
+                    backgroundImage: NetworkImage(_logoUrl!),
+                  )
+                : CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.business,
+                      size: 30,
+                      color: AppTheme.primaryGreen,
+                    ),
+                  ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -338,90 +346,7 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
     );
   }
 
-  Widget _buildStatisticsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Overview', style: AppTheme.headingMedium),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.visibility,
-                label: 'Views',
-                value: '0',
-                color: AppTheme.accentBlue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.star,
-                label: 'Rating',
-                value: '0.0',
-                color: AppTheme.accentYellow,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.bookmark,
-                label: 'Bookmarks',
-                value: '0',
-                color: AppTheme.secondaryGreen,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.rate_review,
-                label: 'Reviews',
-                value: '0',
-                color: AppTheme.primaryGreen,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: AppTheme.headingMedium.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              label,
-              style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionsGrid() {
+  Widget _buildModulesGrid() {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -430,9 +355,54 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
       mainAxisSpacing: 12,
       childAspectRatio: 1.2,
       children: [
-        _buildActionCard(
+        _buildModuleCard(
+          icon: Icons.visibility,
+          label: 'Views',
+          value: '0',
+          color: AppTheme.accentBlue,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Analytics coming soon!')),
+            );
+          },
+        ),
+        _buildModuleCard(
+          icon: Icons.star,
+          label: 'Rating',
+          value: '0.0',
+          color: AppTheme.accentYellow,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Rating details coming soon!')),
+            );
+          },
+        ),
+        _buildModuleCard(
+          icon: Icons.bookmark,
+          label: 'Bookmarks',
+          value: '0',
+          color: AppTheme.secondaryGreen,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Bookmark analytics coming soon!')),
+            );
+          },
+        ),
+        _buildModuleCard(
+          icon: Icons.rate_review,
+          label: 'Reviews',
+          value: '0',
+          color: AppTheme.primaryGreen,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Customer reviews coming soon!')),
+            );
+          },
+        ),
+        _buildModuleCard(
           icon: Icons.fastfood,
-          label: 'Manage Menu',
+          label: 'Menu Items',
+          value: '',
           color: AppTheme.secondaryGreen,
           onTap: () {
             Navigator.push(
@@ -441,9 +411,10 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
             );
           },
         ),
-        _buildActionCard(
+        _buildModuleCard(
           icon: Icons.edit,
           label: 'Edit Profile',
+          value: '',
           color: AppTheme.accentBlue,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -451,23 +422,25 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
             );
           },
         ),
-        _buildActionCard(
-          icon: Icons.rate_review,
-          label: 'Customer Reviews',
-          color: AppTheme.accentYellow,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Reviews section coming soon!')),
-            );
-          },
-        ),
-        _buildActionCard(
+        _buildModuleCard(
           icon: Icons.analytics,
           label: 'Analytics',
+          value: '',
           color: AppTheme.primaryGreen,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Analytics coming soon!')),
+              const SnackBar(content: Text('Detailed analytics coming soon!')),
+            );
+          },
+        ),
+        _buildModuleCard(
+          icon: Icons.settings,
+          label: 'Settings',
+          value: '',
+          color: AppTheme.textSecondary,
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Settings coming soon!')),
             );
           },
         ),
@@ -475,9 +448,10 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
     );
   }
 
-  Widget _buildActionCard({
+  Widget _buildModuleCard({
     required IconData icon,
     required String label,
+    required String value,
     required Color color,
     required VoidCallback onTap,
   }) {
@@ -490,11 +464,23 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 40, color: color),
-              const SizedBox(height: 12),
+              Icon(icon, size: 32, color: color),
+              const SizedBox(height: 8),
+              if (value.isNotEmpty)
+                Text(
+                  value,
+                  style: AppTheme.headingMedium.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              const SizedBox(height: 4),
               Text(
                 label,
-                style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                style: AppTheme.bodySmall.copyWith(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -516,15 +502,22 @@ class _BusinessDashboardPageState extends State<BusinessDashboardPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.business,
-                    size: 30,
-                    color: AppTheme.primaryGreen,
-                  ),
-                ),
+                // Display logo in drawer too
+                _logoUrl != null && _logoUrl!.isNotEmpty
+                    ? CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        backgroundImage: NetworkImage(_logoUrl!),
+                      )
+                    : CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.business,
+                          size: 30,
+                          color: AppTheme.primaryGreen,
+                        ),
+                      ),
                 const SizedBox(height: 12),
                 Text(
                   _businessName,

@@ -6,6 +6,8 @@ import 'config/app_theme.dart';
 import 'user_review_form.dart';
 import 'user_auth_page.dart';
 import 'services/bookmark_service.dart';
+import 'photo_gallery_viewer_page.dart';
+import 'services/gallery_service.dart';
 
 class EstablishmentDetailsPage extends StatefulWidget {
   final String establishmentId; // This is the business document ID
@@ -24,6 +26,7 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
   // ==================== FIREBASE INSTANCES ====================
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final BookmarkService _bookmarkService = BookmarkService();
+  final GalleryService _galleryService = GalleryService();
 
   // ==================== BOOKMARK HANDLING ====================
   /// Handle bookmark button tap
@@ -704,70 +707,183 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
 
               // Content
               SliverList(
-                delegate: SliverChildListDelegate(
-                  [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
+                delegate: SliverChildListDelegate([
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
 
-                          // Logo + Name
-                          Align(
-                            alignment: Alignment.center,
-                            child: Column(
+                        // Logo + Name
+                        Align(
+                          alignment: Alignment.center,
+                          child: Column(
+                            children: [
+                              _buildLogo(logoUrl),
+                              const SizedBox(height: 10),
+                              Text(
+                                businessName,
+                                style: AppTheme.headingMedium,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+                        _buildRatingAndReviewInfo(),
+                        const SizedBox(height: 24),
+
+                        // Description
+                        Text(
+                          description,
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: AppTheme.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Information Section
+                        _buildSectionTitle('Information', Icons.info_outline),
+                        const SizedBox(height: 16),
+                        _buildDetailsCard(data),
+                        const SizedBox(height: 32),
+
+                        // Photos Section
+                        StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: _galleryService.getBusinessGallery(widget.establishmentId),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const SizedBox.shrink();
+                            }
+
+                            final photos = snapshot.data ?? [];
+                            
+                            if (photos.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLogo(logoUrl),
-                                const SizedBox(height: 10),
-                                Text(
-                                  businessName,
-                                  style: AppTheme.headingMedium,
-                                  textAlign: TextAlign.center,
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Other Photos',
+                                      style: AppTheme.headingMedium,
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => PhotoGalleryViewerPage(
+                                              businessName: businessName,
+                                              photos: photos,
+                                              initialIndex: 0,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Text('View All (${photos.length})'),
+                                    ),
+                                  ],
                                 ),
+                                const SizedBox(height: 12),
+                                
+                                SizedBox(
+                                  height: 120,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: photos.length > 10 ? 10 : photos.length,
+                                    itemBuilder: (context, index) {
+                                      final photo = photos[index];
+                                      final photoUrl = photo['photoUrl'] as String;
+
+                                      return GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => PhotoGalleryViewerPage(
+                                                businessName: businessName,
+                                                photos: photos,
+                                                initialIndex: index,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          width: 120,
+                                          margin: const EdgeInsets.only(right: 12),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                Image.network(
+                                                  photoUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    return Container(
+                                                      color: Colors.grey[300],
+                                                      child: const Icon(Icons.broken_image),
+                                                    );
+                                                  },
+                                                ),
+                                                
+                                                if (index == 9 && photos.length > 10)
+                                                  Container(
+                                                    color: Colors.black.withOpacity(0.7),
+                                                    child: Center(
+                                                      child: Text(
+                                                        '+${photos.length - 10}\nmore',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 16,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                const Divider(),
+                                const SizedBox(height: 16),
                               ],
-                            ),
-                          ),
+                            );
+                          },
+                        ),
 
-                          const SizedBox(height: 20),
-                          _buildRatingAndReviewInfo(),
-                          const SizedBox(height: 24),
+                        // Menu Items Section
+                        _buildSectionTitle('Menu Items', Icons.menu_book),
+                        const SizedBox(height: 16),
+                        _buildMenuItemsList(),
+                        const SizedBox(height: 32),
 
-                          // Description
-                          Text(
-                            description,
-                            style: AppTheme.bodyLarge.copyWith(
-                              color: AppTheme.textSecondary,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Information Section
-                          _buildSectionTitle('Information', Icons.info_outline),
-                          const SizedBox(height: 16),
-                          _buildDetailsCard(data),
-                          const SizedBox(height: 32),
-
-                          // Menu Items Section
-                          _buildSectionTitle('Menu Items', Icons.menu_book),
-                          const SizedBox(height: 16),
-                          _buildMenuItemsList(),
-                          const SizedBox(height: 32),
-
-                          // Reviews Section
-                          _buildSectionTitle(
-                            'Customer Reviews',
-                            Icons.rate_review,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildReviewsList(),
-                          const SizedBox(height: 100),
-                        ],
-                      ),
+                        // Reviews Section
+                        _buildSectionTitle(
+                          'Customer Reviews',
+                          Icons.rate_review,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildReviewsList(),
+                        const SizedBox(height: 100),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ]),
               ),
             ],
           ),
