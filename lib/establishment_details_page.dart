@@ -8,9 +8,11 @@ import 'user_auth_page.dart';
 import 'services/bookmark_service.dart';
 import 'photo_gallery_viewer_page.dart';
 import 'services/gallery_service.dart';
+import 'services/promotion_service.dart';
+import 'models/promotion_model.dart';
 
 class EstablishmentDetailsPage extends StatefulWidget {
-  final String establishmentId; // This is the business document ID
+  final String establishmentId;
 
   const EstablishmentDetailsPage({
     super.key,
@@ -27,18 +29,16 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final BookmarkService _bookmarkService = BookmarkService();
   final GalleryService _galleryService = GalleryService();
+  final PromotionService _promotionService = PromotionService();
 
   // ==================== BOOKMARK HANDLING ====================
-  /// Handle bookmark button tap
   Future<void> _handleBookmarkTap(
     String businessName,
     String businessType,
   ) async {
     final user = FirebaseAuth.instance.currentUser;
 
-    // Check if user is authenticated (not anonymous)
     if (user == null || user.isAnonymous) {
-      // Show dialog prompting user to sign in
       if (!mounted) return;
       
       final shouldSignIn = await showDialog<bool>(
@@ -62,13 +62,11 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
       );
 
       if (shouldSignIn == true && mounted) {
-        // Navigate to sign in page
         final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const UserAuthPage()),
         );
 
-        // After sign in, try bookmarking again
         if (result == true && mounted) {
           await _handleBookmarkTap(businessName, businessType);
         }
@@ -76,7 +74,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
       return;
     }
 
-    // User is authenticated - toggle bookmark
     final success = await _bookmarkService.toggleBookmark(
       businessId: widget.establishmentId,
       businessName: businessName,
@@ -85,7 +82,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
 
     if (!mounted) return;
 
-    // Show feedback
     if (success) {
       final isBookmarked = await _bookmarkService.isBookmarked(widget.establishmentId);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,6 +104,234 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
         ),
       );
     }
+  }
+
+  // ==================== BUILD ACTIVE PROMOTIONS SECTION ====================
+  Widget _buildActivePromotionsSection() {
+    return StreamBuilder<List<Promotion>>(
+      stream: _promotionService.getActiveBusinessPromotions(widget.establishmentId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        final promotions = snapshot.data ?? [];
+        
+        if (promotions.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            
+            // Section Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentYellow.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.local_offer,
+                    color: AppTheme.accentYellow,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Active Promotions',
+                  style: AppTheme.headingMedium.copyWith(
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorRed,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${promotions.length} Offer${promotions.length > 1 ? 's' : ''}',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+
+            // Promotions List
+            ...promotions.map((promotion) => _buildPromotionCard(promotion)).toList(),
+            
+            const SizedBox(height: 24),
+            const Divider(),
+          ],
+        );
+      },
+    );
+  }
+
+  // ==================== BUILD PROMOTION CARD ====================
+  Widget _buildPromotionCard(Promotion promotion) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppTheme.accentYellow,
+              AppTheme.accentYellow.withOpacity(0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          children: [
+            // Background Pattern
+            Positioned(
+              right: -15,
+              bottom: -15,
+              child: Icon(
+                Icons.local_offer,
+                size: 80,
+                color: Colors.white.withOpacity(0.1),
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    promotion.title,
+                    style: AppTheme.headingMedium.copyWith(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+
+                  // Description
+                  Text(
+                    promotion.description,
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.95),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Validity Period
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: AppTheme.errorRed,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              promotion.daysRemaining > 0
+                                  ? '${promotion.daysRemaining} days left'
+                                  : 'Ends today',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.errorRed,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const Spacer(),
+
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.successGreen,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          promotion.statusText,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // "SPECIAL OFFER" Badge
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.errorRed,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'SPECIAL OFFER',
+                  style: AppTheme.bodySmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ==================== BUILD LOGO ====================
@@ -625,7 +849,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
           .doc(widget.establishmentId)
           .snapshots(),
       builder: (context, snapshot) {
-        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
             appBar: AppBar(
@@ -637,7 +860,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
           );
         }
 
-        // Error or not found state
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Scaffold(
             appBar: AppBar(
@@ -668,7 +890,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
           );
         }
 
-        // Get business data
         var data = snapshot.data!.data() as Map<String, dynamic>;
         final String businessName = data['businessName'] ?? 'Unnamed Business';
         final String businessType = data['businessType'] ?? 'Restaurant';
@@ -679,7 +900,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
           backgroundColor: AppTheme.backgroundColor,
           body: CustomScrollView(
             slivers: [
-              // App Bar with Bookmark Button
               SliverAppBar(
                 pinned: true,
                 title: Text(
@@ -687,7 +907,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 actions: [
-                  // Bookmark button in app bar
                   StreamBuilder<bool>(
                     stream: _bookmarkService.watchBookmarkStatus(widget.establishmentId),
                     builder: (context, snapshot) {
@@ -705,7 +924,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                 ],
               ),
 
-              // Content
               SliverList(
                 delegate: SliverChildListDelegate([
                   Padding(
@@ -715,7 +933,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                       children: [
                         const SizedBox(height: 20),
 
-                        // Logo + Name
                         Align(
                           alignment: Alignment.center,
                           child: Column(
@@ -735,7 +952,6 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                         _buildRatingAndReviewInfo(),
                         const SizedBox(height: 24),
 
-                        // Description
                         Text(
                           description,
                           style: AppTheme.bodyLarge.copyWith(
@@ -744,6 +960,9 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 32),
+
+                        // Active Promotions Section
+                        _buildActivePromotionsSection(),
 
                         // Information Section
                         _buildSectionTitle('Information', Icons.info_outline),

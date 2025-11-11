@@ -48,7 +48,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ==================== BOOKMARK HANDLING ====================
-  /// Handle bookmark button tap
   Future<void> _handleBookmarkTap(
     String businessId,
     String businessName,
@@ -56,9 +55,7 @@ class _HomePageState extends State<HomePage> {
   ) async {
     final user = FirebaseAuth.instance.currentUser;
 
-    // Check if user is authenticated (not anonymous)
     if (user == null || user.isAnonymous) {
-      // Show dialog prompting user to sign in
       if (!mounted) return;
       
       final shouldSignIn = await showDialog<bool>(
@@ -82,13 +79,11 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (shouldSignIn == true && mounted) {
-        // Navigate to sign in page
         final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const UserAuthPage()),
         );
 
-        // After sign in, try bookmarking again
         if (result == true && mounted) {
           await _handleBookmarkTap(businessId, businessName, businessType);
         }
@@ -96,7 +91,6 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    // User is authenticated - toggle bookmark
     final success = await _bookmarkService.toggleBookmark(
       businessId: businessId,
       businessName: businessName,
@@ -105,7 +99,6 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
 
-    // Show feedback
     if (success) {
       final isBookmarked = await _bookmarkService.isBookmarked(businessId);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -131,21 +124,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ==================== ACCOUNT NAVIGATION ====================
-  /// Handles account navigation based on authentication state
   Future<void> _handleAccountNavigation() async {
     final user = FirebaseAuth.instance.currentUser;
     
-    // Check if user is signed in (not anonymous)
     if (user == null || user.isAnonymous) {
-      // User not signed in - navigate to login/registration
       final result = await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const UserAuthPage()),
       );
       
-      // If user successfully logged in, refresh the page
       if (result == true && mounted) {
-        setState(() {}); // Refresh to show updated state
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Welcome back!'),
@@ -154,13 +143,11 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } else {
-      // User is signed in - navigate to profile
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const UserProfilePage()),
       );
       
-      // Refresh in case user signed out
       if (mounted) {
         setState(() {});
       }
@@ -175,13 +162,11 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         throw Exception('Location services are disabled. Please enable them in settings.');
       }
 
-      // Check location permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -194,7 +179,6 @@ class _HomePageState extends State<HomePage> {
         throw Exception('Location permissions are permanently denied. Please enable them in app settings.');
       }
 
-      // Get current position
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -219,9 +203,180 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Calculate distance between two coordinates (in kilometers)
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000; // Convert to km
+    return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000;
+  }
+
+  // ==================== BUILD PROMOTIONS SECTION ====================
+  Widget _buildPromotionsSection() {
+    debugPrint('Building promotions section...');
+    
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('promotions')
+          .where('isActive', isEqualTo: true)
+          .snapshots(), // Single where clause - no index needed
+      builder: (context, snapshot) {
+        debugPrint('Promotions stream state: ${snapshot.connectionState}');
+        
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          debugPrint('Promotions: Still waiting...');
+          return const SizedBox.shrink();
+        }
+
+        if (snapshot.hasError) {
+          debugPrint('Promotions stream error: ${snapshot.error}');
+          return const SizedBox.shrink();
+        }
+
+        if (!snapshot.hasData) {
+          debugPrint('Promotions: No data');
+          return const SizedBox.shrink();
+        }
+
+        // Filter promotions that haven't expired (endDate > now) in Dart
+        final now = DateTime.now();
+        final promotions = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final Timestamp? endDate = data['endDate'] as Timestamp?;
+          if (endDate == null) return false;
+          return endDate.toDate().isAfter(now);
+        }).toList();
+
+        debugPrint('✓ Promotions received: ${promotions.length}');
+
+        if (promotions.isEmpty) {
+          debugPrint('Promotions list is empty after filtering');
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Special Offers', style: AppTheme.headingMedium),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 140,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: promotions.length,
+                itemBuilder: (context, index) {
+                  final promo = promotions[index].data() as Map<String, dynamic>;
+                  debugPrint('Building promo card $index: ${promo['title']}');
+                  return _buildPromotionCard(promo);
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+    );
+  }
+
+  // ==================== BUILD PROMOTION CARD ====================
+  Widget _buildPromotionCard(Map<String, dynamic> promo) {
+    final String title = promo['title'] ?? 'Special Offer';
+    final String? imageUrl = promo['imageUrl'];
+    final Timestamp? startDate = promo['startDate'] as Timestamp?;
+    
+    // Determine if promotion is scheduled (hasn't started yet) or active
+    bool isScheduled = false;
+    if (startDate != null) {
+      isScheduled = startDate.toDate().isAfter(DateTime.now());
+    }
+    
+    debugPrint('Promo "$title": scheduled=$isScheduled');
+
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 12),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background image
+            if (imageUrl != null && imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppTheme.primaryGreen,
+                      child: const Center(
+                        child: Icon(Icons.local_offer, color: Colors.white, size: 40),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              Container(
+                color: AppTheme.primaryGreen,
+                child: const Center(
+                  child: Icon(Icons.local_offer, color: Colors.white, size: 40),
+                ),
+              ),
+            
+            // Dark overlay
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isScheduled
+                          ? AppTheme.accentYellow
+                          : AppTheme.errorRed,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      isScheduled ? 'COMING SOON' : 'HOT DEAL',
+                      style: TextStyle(
+                        color: isScheduled ? Colors.black87 : Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  
+                  // Title
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ==================== BUILD CATEGORY FILTER ====================
@@ -268,12 +423,10 @@ class _HomePageState extends State<HomePage> {
     final logoUrl = data['logoUrl'];
     final approvalStatus = data['approvalStatus'] ?? 'pending';
 
-    // Only show approved businesses
     if (approvalStatus != 'approved') {
       return const SizedBox.shrink();
     }
 
-    // Calculate distance if location is available
     String? distanceText;
     if (_currentPosition != null && data['latitude'] != null && data['longitude'] != null) {
       final distance = _calculateDistance(
@@ -326,7 +479,6 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Business Name
                     Text(
                       businessName,
                       style: AppTheme.titleMedium,
@@ -335,7 +487,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 4),
 
-                    // Business Type
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -355,7 +506,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Address
                     Row(
                       children: [
                         Icon(
@@ -377,7 +527,6 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
 
-                    // Distance (if available)
                     if (distanceText != null) ...[
                       const SizedBox(height: 4),
                       Row(
@@ -402,7 +551,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              // Bookmark button
               StreamBuilder<bool>(
                 stream: _bookmarkService.watchBookmarkStatus(business.id),
                 builder: (context, snapshot) {
@@ -431,7 +579,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Placeholder logo when no image is available
   Widget _buildPlaceholderLogo() {
     return Container(
       width: 80,
@@ -485,7 +632,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    setState(() {}); // Trigger rebuild
+                    setState(() {});
                   },
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry'),
@@ -513,7 +660,6 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        // Filter by category
         var businesses = snapshot.data!.docs;
         if (_selectedCategory != 'All') {
           businesses = businesses.where((business) {
@@ -553,7 +699,7 @@ class _HomePageState extends State<HomePage> {
 
         return RefreshIndicator(
           onRefresh: () async {
-            setState(() {}); // Trigger rebuild
+            setState(() {});
           },
           child: ListView.builder(
             itemCount: businesses.length,
@@ -666,7 +812,6 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Discover'),
         actions: [
-          // Search button
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Search restaurants',
@@ -678,7 +823,6 @@ class _HomePageState extends State<HomePage> {
             },
           ),
           
-          // Account button
           IconButton(
             icon: const Icon(Icons.account_circle),
             tooltip: 'Account',
@@ -688,15 +832,55 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // Location banner
           _buildLocationBanner(),
 
-          // Category filter
-          _buildCategoryFilter(),
-
-          // Establishments list
           Expanded(
-            child: _buildEstablishmentsList(),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                setState(() {});
+              },
+              child: CustomScrollView(
+                slivers: [
+                  // Promotions Section
+                  SliverToBoxAdapter(
+                    child: _buildPromotionsSection(),
+                  ),
+
+                  // Category Filter
+                  SliverToBoxAdapter(
+                    child: _buildCategoryFilter(),
+                  ),
+
+                  // Restaurants Header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.restaurant_menu,
+                            color: AppTheme.primaryGreen,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'All Restaurants',
+                            style: AppTheme.headingMedium.copyWith(
+                              color: AppTheme.primaryGreen,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Establishments List
+                  SliverFillRemaining(
+                    child: _buildEstablishmentsList(),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
