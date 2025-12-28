@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'business_dashboard.dart';
 
 // Import our configuration files
 import 'firebase_options.dart';
@@ -12,6 +13,10 @@ import 'config/app_theme.dart';
 
 // Import pages
 import 'explore.dart';
+import 'business_auth_page.dart';
+import 'user_auth_page.dart';
+import 'user_profile_page.dart';
+import 'admin_dashboard_page.dart';
 
 /// Main entry point of the MamFood Hub application
 void main() async {
@@ -33,15 +38,14 @@ Future<void> _initializeApp() async {
     );
     _logSuccess('Firebase initialized');
     
-    // STEP 2: Configure Firestore Offline Support First
+    // STEP 2: Configure Firestore Offline Support
     if (AppConfig.enableOfflineMode) {
       await _configureFirestore();
     }
     
-    // STEP 3: Enable Anonymous Browsing (with better error handling)
-    if (AppConfig.enableAnonymousBrowsing) {
-      await _enableAnonymousBrowsing();
-    }
+    // STEP 3: Check current auth state (DON'T create anonymous user automatically)
+    // Only log the current state, don't sign in
+    await _checkAuthState();
     
     _logSuccess('App initialization complete');
     
@@ -51,36 +55,23 @@ Future<void> _initializeApp() async {
   }
 }
 
-/// Enable anonymous browsing for users
+/// Check current authentication state WITHOUT auto-signing in
 /// 
-/// This allows users to explore restaurants without creating an account.
-/// To bookmark or write reviews, they'll need to create an account.
-Future<void> _enableAnonymousBrowsing() async {
+/// This just logs the state for debugging purposes.
+/// Anonymous users will be created on-demand when needed.
+Future<void> _checkAuthState() async {
   try {
     final currentUser = FirebaseAuth.instance.currentUser;
     
     if (currentUser == null) {
-      // No user exists - create an anonymous user
-      final userCredential = await FirebaseAuth.instance.signInAnonymously();
-      _logInfo('Anonymous user created: ${userCredential.user?.uid}');
+      _logInfo('No user signed in (anonymous browsing will work without auth)');
     } else if (currentUser.isAnonymous) {
-      // Anonymous user already exists
-      _logInfo('Anonymous user already active: ${currentUser.uid}');
+      _logInfo('Anonymous user active: ${currentUser.uid}');
     } else {
-      // Real user is signed in
       _logInfo('User signed in: ${currentUser.email ?? currentUser.uid}');
     }
-  } on FirebaseAuthException catch (e) {
-    // Specific Firebase Auth errors
-    if (e.code == 'admin-restricted-operation') {
-      _logError('Anonymous auth is disabled in Firebase Console. Please enable it:');
-      _logError('Firebase Console → Authentication → Sign-in method → Anonymous → Enable');
-    } else {
-      _logError('Auth error: ${e.code} - ${e.message}');
-    }
   } catch (e) {
-    // Other errors
-    _logError('Could not enable anonymous browsing: $e');
+    _logError('Could not check auth state: $e');
   }
 }
 
@@ -126,11 +117,28 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppConfig.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const ExplorePage(),
+      theme: ThemeData(
+        primaryColor: AppTheme.primaryGreen,
+        scaffoldBackgroundColor: AppTheme.surfaceColor,
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppTheme.primaryGreen,
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      initialRoute: '/', // This tells Flutter to start with '/' route
       routes: {
-        '/explore': (context) => const ExplorePage(),
+        '/': (context) => const ExplorePage(),
+        '/business-auth': (context) => const BusinessAuthPage(),
+        '/business-dashboard': (context) => const BusinessDashboardPage(),
+        '/user-auth': (context) => const UserAuthPage(),
+        '/user-profile': (context) => const UserProfilePage(),
+        '/admin-dashboard': (context) => const AdminDashboardPage(),
       },
     );
   }

@@ -18,11 +18,230 @@ class _BookmarksPageState extends State<BookmarksPage> {
   final BookmarkService _bookmarkService = BookmarkService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // ==================== STATE VARIABLES ====================
+  String? _selectedLabelFilter;
+
+  // Predefined labels with colors
+  final Map<String, Color> _labelColors = {
+    'Want to Try': AppTheme.accentYellow,
+    'Favorites': AppTheme.errorRed,
+    'Date Night': Colors.pink,
+    'Good for Groups': AppTheme.accentBlue,
+  };
+
+  // ==================== SHOW LABEL SELECTION DIALOG ====================
+  Future<String?> _showLabelSelectionDialog(String currentLabel) async {
+    return await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Label'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Predefined labels
+              ..._labelColors.keys.map((label) => ListTile(
+                leading: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: _labelColors[label],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                title: Text(label),
+                trailing: currentLabel == label
+                    ? const Icon(Icons.check, color: AppTheme.successGreen)
+                    : null,
+                onTap: () => Navigator.pop(context, label),
+              )),
+              
+              const Divider(),
+              
+              // Remove label option
+              ListTile(
+                leading: const Icon(Icons.clear, color: AppTheme.textSecondary),
+                title: const Text('No Label'),
+                trailing: currentLabel.isEmpty
+                    ? const Icon(Icons.check, color: AppTheme.successGreen)
+                    : null,
+                onTap: () => Navigator.pop(context, ''),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== BUILD LABEL CHIP ====================
+  Widget _buildLabelChip(String label) {
+    if (label.isEmpty) return const SizedBox.shrink();
+    
+    final color = _labelColors[label] ?? AppTheme.primaryGreen;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTheme.bodySmall.copyWith(
+              color: color.withOpacity(0.9),
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== BUILD LABEL FILTER DROPDOWN ====================
+  Widget _buildLabelFilter(List<Map<String, dynamic>> allBookmarks) {
+    // Get unique labels from bookmarks
+    final uniqueLabels = allBookmarks
+        .map((b) => b['label'] as String?)
+        .where((label) => label != null && label.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (uniqueLabels.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.primaryGreen.withOpacity(0.1),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.filter_list,
+            size: 20,
+            color: AppTheme.primaryGreen,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Filter:',
+            style: AppTheme.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryGreen,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  // "All" filter chip
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: const Text('All'),
+                      selected: _selectedLabelFilter == null,
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedLabelFilter = null;
+                        });
+                      },
+                      backgroundColor: AppTheme.surfaceColor,
+                      selectedColor: AppTheme.primaryGreen,
+                      labelStyle: TextStyle(
+                        color: _selectedLabelFilter == null
+                            ? Colors.white
+                            : AppTheme.textPrimary,
+                        fontWeight: _selectedLabelFilter == null
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  
+                  // Label filter chips
+                  ...uniqueLabels.map((label) {
+                    final color = _labelColors[label] ?? AppTheme.primaryGreen;
+                    final isSelected = _selectedLabelFilter == label;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.white : color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(label ?? ''),
+                          ],
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedLabelFilter = selected ? label : null;
+                          });
+                        },
+                        backgroundColor: color.withOpacity(0.1),
+                        selectedColor: color,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : color,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==================== BUILD BOOKMARK CARD ====================
   Widget _buildBookmarkCard(Map<String, dynamic> bookmark) {
     final businessId = bookmark['businessId'] as String;
     final businessName = bookmark['businessName'] ?? 'Unnamed Business';
     final businessType = bookmark['businessType'] ?? 'Restaurant';
+    final label = bookmark['label'] as String? ?? '';
     
     // Get timestamp
     String bookmarkedText = 'Recently added';
@@ -143,6 +362,12 @@ class _BookmarksPageState extends State<BookmarksPage> {
                         ),
                         const SizedBox(height: 8),
 
+                        // Label chip
+                        if (label.isNotEmpty) ...[
+                          _buildLabelChip(label),
+                          const SizedBox(height: 8),
+                        ],
+
                         // Address (if available)
                         if (address != null)
                           Row(
@@ -212,12 +437,25 @@ class _BookmarksPageState extends State<BookmarksPage> {
                     ),
                   ),
 
-                  // Remove bookmark button
-                  IconButton(
-                    icon: const Icon(Icons.bookmark),
-                    color: AppTheme.accentYellow,
-                    tooltip: 'Remove bookmark',
-                    onPressed: () => _removeBookmark(businessId, businessName),
+                  // Actions column
+                  Column(
+                    children: [
+                      // Edit label button
+                      IconButton(
+                        icon: const Icon(Icons.label_outline, size: 20),
+                        color: AppTheme.accentBlue,
+                        tooltip: 'Edit label',
+                        onPressed: () => _editBookmarkLabel(businessId, label),
+                      ),
+                      
+                      // Remove bookmark button
+                      IconButton(
+                        icon: const Icon(Icons.bookmark, size: 20),
+                        color: AppTheme.accentYellow,
+                        tooltip: 'Remove bookmark',
+                        onPressed: () => _removeBookmark(businessId, businessName),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -243,6 +481,41 @@ class _BookmarksPageState extends State<BookmarksPage> {
         color: AppTheme.primaryGreen,
       ),
     );
+  }
+
+  // ==================== EDIT BOOKMARK LABEL ====================
+  Future<void> _editBookmarkLabel(String businessId, String currentLabel) async {
+    final newLabel = await _showLabelSelectionDialog(currentLabel);
+    
+    if (newLabel == null) return; // User cancelled
+    
+    final success = await _bookmarkService.updateBookmarkLabel(
+      businessId,
+      newLabel.isEmpty ? null : newLabel,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            newLabel.isEmpty
+                ? 'Label removed'
+                : 'Label updated to "$newLabel"',
+          ),
+          backgroundColor: AppTheme.successGreen,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update label'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
   }
 
   // ==================== REMOVE BOOKMARK ====================
@@ -308,12 +581,16 @@ class _BookmarksPageState extends State<BookmarksPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Bookmarks Yet',
+              _selectedLabelFilter != null
+                  ? 'No "$_selectedLabelFilter" Bookmarks'
+                  : 'No Bookmarks Yet',
               style: AppTheme.headingMedium,
             ),
             const SizedBox(height: 12),
             Text(
-              'Start exploring and bookmark your favorite restaurants!',
+              _selectedLabelFilter != null
+                  ? 'Try selecting a different label or clear the filter'
+                  : 'Start exploring and bookmark your favorite restaurants!',
               style: AppTheme.bodyMedium.copyWith(
                 color: AppTheme.textSecondary,
               ),
@@ -322,10 +599,22 @@ class _BookmarksPageState extends State<BookmarksPage> {
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.pop(context); // Go back to home
+                if (_selectedLabelFilter != null) {
+                  setState(() {
+                    _selectedLabelFilter = null;
+                  });
+                } else {
+                  Navigator.pop(context); // Go back to home
+                }
               },
-              icon: const Icon(Icons.explore),
-              label: const Text('Explore Restaurants'),
+              icon: Icon(
+                _selectedLabelFilter != null ? Icons.clear : Icons.explore,
+              ),
+              label: Text(
+                _selectedLabelFilter != null
+                    ? 'Clear Filter'
+                    : 'Explore Restaurants',
+              ),
             ),
           ],
         ),
@@ -438,24 +727,41 @@ class _BookmarksPageState extends State<BookmarksPage> {
             );
           }
 
-          // Empty state
-          final bookmarks = snapshot.data ?? [];
-          if (bookmarks.isEmpty) {
-            return _buildEmptyState();
-          }
+          // Get all bookmarks
+          final allBookmarks = snapshot.data ?? [];
+          
+          // Filter bookmarks by selected label
+          final bookmarks = _selectedLabelFilter == null
+              ? allBookmarks
+              : allBookmarks.where((bookmark) {
+                  final label = bookmark['label'] as String?;
+                  return label == _selectedLabelFilter;
+                }).toList();
 
-          // Bookmarks list
-          return RefreshIndicator(
-            onRefresh: () async {
-              // Trigger rebuild
-              setState(() {});
-            },
-            child: ListView.builder(
-              itemCount: bookmarks.length,
-              itemBuilder: (context, index) {
-                return _buildBookmarkCard(bookmarks[index]);
-              },
-            ),
+          // Build UI
+          return Column(
+            children: [
+              // Label filter (only show if there are labeled bookmarks)
+              _buildLabelFilter(allBookmarks),
+
+              // Bookmarks list or empty state
+              Expanded(
+                child: bookmarks.isEmpty
+                    ? _buildEmptyState()
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          // Trigger rebuild
+                          setState(() {});
+                        },
+                        child: ListView.builder(
+                          itemCount: bookmarks.length,
+                          itemBuilder: (context, index) {
+                            return _buildBookmarkCard(bookmarks[index]);
+                          },
+                        ),
+                      ),
+              ),
+            ],
           );
         },
       ),

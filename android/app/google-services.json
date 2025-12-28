@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "873603815277",
-    "project_id": "mambusao-food-hub",
-    "storage_bucket": "mambusao-food-hub.firebasestorage.app"
+    "project_number": "553464954192",
+    "project_id": "mambusao-food-hub-v2",
+    "storage_bucket": "mambusao-food-hub-v2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:873603815277:android:24e9c7989ad605fd28ac64",
+        "mobilesdk_app_id": "1:553464954192:android:89d176c0cf36036bd94055",
         "android_client_info": {
           "package_name": "com.example.mambusao_food_hub"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDXqpZc8W3Tl-XAcQ6VU9_sqyFdEkOpBt0"
+          "current_key": "AIzaSyAvAfdt3FHbIiIiF4GIYCutqLB-CIwxE_I"
         }
       ],
       "services": {

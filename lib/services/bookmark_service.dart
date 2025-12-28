@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 
 class BookmarkService {
@@ -62,17 +63,22 @@ class BookmarkService {
       final existing = await isBookmarked(businessId);
       if (existing) {
         if (AppConfig.enableDebugMode) {
-          print('Business already bookmarked');
+          debugPrint('Business already bookmarked');
         }
         return true;
       }
 
-      // Add bookmark
-      await _firestore
+      // Use batch for atomic operations
+      final batch = _firestore.batch();
+
+      // Add bookmark to user's subcollection
+      final bookmarkRef = _firestore
           .collection(AppConfig.usersCollection)
           .doc(user.uid)
           .collection(AppConfig.bookmarksSubcollection)
-          .add({
+          .doc(businessId);
+
+      batch.set(bookmarkRef, {
         'businessId': businessId,
         'businessName': businessName,
         'businessType': businessType,
@@ -80,13 +86,51 @@ class BookmarkService {
         'bookmarkedAt': FieldValue.serverTimestamp(),
       });
 
+      // INCREMENT bookmarkCount in business document
+      final businessRef = _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(businessId);
+
+      batch.update(businessRef, {
+        'bookmarkCount': FieldValue.increment(1),
+      });
+
+      // Commit batch
+      await batch.commit();
+
       if (AppConfig.enableDebugMode) {
-        print('Bookmark added successfully');
+        debugPrint('✓ Bookmark added and count incremented for business: $businessId');
       }
+
       return true;
     } catch (e) {
+      // If bookmarkCount doesn't exist, initialize it
+      if (e.toString().contains('NOT_FOUND')) {
+        try {
+          await _firestore
+              .collection(AppConfig.businessesCollection)
+              .doc(businessId)
+              .set({
+            'bookmarkCount': 1,
+          }, SetOptions(merge: true));
+
+          // Retry the bookmark addition
+          return await addBookmark(
+            businessId: businessId,
+            businessName: businessName,
+            businessType: businessType,
+            label: label,
+          );
+        } catch (initError) {
+          if (AppConfig.enableDebugMode) {
+            debugPrint('✗ Error initializing bookmark count: $initError');
+          }
+          return false;
+        }
+      }
+
       if (AppConfig.enableDebugMode) {
-        print('Error adding bookmark: $e');
+        debugPrint('✗ Error adding bookmark: $e');
       }
       return false;
     }
@@ -98,25 +142,38 @@ class BookmarkService {
     if (user == null || user.isAnonymous) return false;
 
     try {
-      final bookmarkQuery = await _firestore
+      // Use batch for atomic operations
+      final batch = _firestore.batch();
+
+      // Remove bookmark from user's subcollection
+      final bookmarkRef = _firestore
           .collection(AppConfig.usersCollection)
           .doc(user.uid)
           .collection(AppConfig.bookmarksSubcollection)
-          .where('businessId', isEqualTo: businessId)
-          .get();
+          .doc(businessId);
 
-      if (bookmarkQuery.docs.isEmpty) return false;
+      batch.delete(bookmarkRef);
 
-      // Delete the bookmark
-      await bookmarkQuery.docs.first.reference.delete();
+      // DECREMENT bookmarkCount in business document
+      final businessRef = _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(businessId);
+
+      batch.update(businessRef, {
+        'bookmarkCount': FieldValue.increment(-1),
+      });
+
+      // Commit batch
+      await batch.commit();
 
       if (AppConfig.enableDebugMode) {
-        print('Bookmark removed successfully');
+        debugPrint('✓ Bookmark removed and count decremented for business: $businessId');
       }
+
       return true;
     } catch (e) {
       if (AppConfig.enableDebugMode) {
-        print('Error removing bookmark: $e');
+        debugPrint('✗ Error removing bookmark: $e');
       }
       return false;
     }
@@ -184,6 +241,39 @@ class BookmarkService {
         print('Error getting bookmark count: $e');
       }
       return 0;
+    }
+  }
+
+  // Update bookmark label
+  Future<bool> updateBookmarkLabel(String businessId, String? newLabel) async {
+    final user = _auth.currentUser;
+    if (user == null || user.isAnonymous) return false;
+
+    try {
+      final bookmarkQuery = await _firestore
+          .collection(AppConfig.usersCollection)
+          .doc(user.uid)
+          .collection(AppConfig.bookmarksSubcollection)
+          .where('businessId', isEqualTo: businessId)
+          .get();
+
+      if (bookmarkQuery.docs.isEmpty) return false;
+
+      // Update the label
+      await bookmarkQuery.docs.first.reference.update({
+        'label': newLabel,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (AppConfig.enableDebugMode) {
+        print('Bookmark label updated successfully');
+      }
+      return true;
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        print('Error updating bookmark label: $e');
+      }
+      return false;
     }
   }
 }

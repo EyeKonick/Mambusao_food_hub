@@ -7,6 +7,8 @@ import 'admin_business_approval_page.dart';
 import 'admin_pending_businesses_page.dart';
 import 'admin_review_moderation_page.dart';
 import 'admin_user_management_page.dart';
+import 'admin/migrate_ratings_page.dart';
+import 'data_migration_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -153,6 +155,57 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
+  // ==================== LOGOUT CONFIRMATION DIALOG ====================
+  Future<bool> _showLogoutConfirmation() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: AppTheme.errorRed),
+            const SizedBox(width: 12),
+            const Text('Confirm Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to log out from admin dashboard?',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  // ==================== HANDLE LOGOUT ====================
+  Future<void> _handleLogout() async {
+    final confirmed = await _showLogoutConfirmation();
+    if (confirmed) {
+      await _auth.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/');
+    }
+  }
+
   Widget _buildStatCard({
     required String title,
     required String value,
@@ -218,166 +271,228 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Stats',
-            onPressed: _loadDashboardStats,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        final shouldLogout = await _showLogoutConfirmation();
+        if (shouldLogout && mounted) {
+          await _auth.signOut();
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/');
+          }
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Admin Dashboard'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _handleLogout,
+            tooltip: 'Logout',
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadDashboardStats,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Welcome Card - Compact
-              Card(
-                color: AppTheme.primaryGreen,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh Stats',
+              onPressed: _loadDashboardStats,
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
+              onPressed: _handleLogout,
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MigrateRatingsPage(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.star_rate),
+          label: const Text('Migrate Ratings'),
+          backgroundColor: Colors.amber,
+        ),
+        body: RefreshIndicator(
+          onRefresh: _loadDashboardStats,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Welcome Card - Compact
+                Card(
+                  color: AppTheme.primaryGreen,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.admin_panel_settings,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.admin_panel_settings,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Admin Dashboard',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Admin Dashboard',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            Text(
-                              _adminEmail ?? 'Administrator',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 13,
+                              Text(
+                                _adminEmail ?? 'Administrator',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Stats Grid
-              Text('Overview Statistics', style: AppTheme.headingMedium),
-              const SizedBox(height: 12),
+                // Stats Grid
+                Text('Overview Statistics', style: AppTheme.headingMedium),
+                const SizedBox(height: 12),
 
-              // Row 1: Pending and Approved
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Pending',
-                      value: _pendingBusinesses.toString(),
-                      icon: Icons.pending_actions,
-                      color: AppTheme.warningOrange,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AdminPendingBusinessesPage(initialTab: 0),
-                          ),
-                        ).then((_) => _loadDashboardStats());
-                      },
+                // Row 1: Pending and Approved
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Pending',
+                        value: _pendingBusinesses.toString(),
+                        icon: Icons.pending_actions,
+                        color: AppTheme.warningOrange,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminPendingBusinessesPage(initialTab: 0),
+                            ),
+                          ).then((_) => _loadDashboardStats());
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Approved',
+                        value: _approvedBusinesses.toString(),
+                        icon: Icons.check_circle,
+                        color: AppTheme.successGreen,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminBusinessApprovalPage(),
+                            ),
+                          ).then((_) => _loadDashboardStats());
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Row 2: Total Businesses and Users
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Total Businesses',
+                        value: _totalBusinesses.toString(),
+                        icon: Icons.business,
+                        color: AppTheme.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: 'Total Users',
+                        value: _totalUsers.toString(),
+                        icon: Icons.people,
+                        color: AppTheme.accentBlue,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminUserManagementPage(),
+                            ),
+                          ).then((_) => _loadDashboardStats());
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Row 3: Reviews (full width)
+                _buildStatCard(
+                  title: 'Total Reviews',
+                  value: _totalReviews.toString(),
+                  icon: Icons.rate_review,
+                  color: AppTheme.accentYellow,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminReviewModerationPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Data Management Section
+                Text('Data Management', style: AppTheme.headingMedium),
+                const SizedBox(height: 12),
+                
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MigrateCountersPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.build),
+                  label: const Text('Run Data Migration'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Approved',
-                      value: _approvedBusinesses.toString(),
-                      icon: Icons.check_circle,
-                      color: AppTheme.successGreen,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AdminBusinessApprovalPage(),
-                          ),
-                        ).then((_) => _loadDashboardStats());
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Row 2: Total Businesses and Users
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Total Businesses',
-                      value: _totalBusinesses.toString(),
-                      icon: Icons.business,
-                      color: AppTheme.primaryGreen,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Total Users',
-                      value: _totalUsers.toString(),
-                      icon: Icons.people,
-                      color: AppTheme.accentBlue,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AdminUserManagementPage(),
-                          ),
-                        ).then((_) => _loadDashboardStats());
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Row 3: Reviews (full width)
-              _buildStatCard(
-                title: 'Total Reviews',
-                value: _totalReviews.toString(),
-                icon: Icons.rate_review,
-                color: AppTheme.accentYellow,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AdminReviewModerationPage(),
-                    ),
-                  );
-                },
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
