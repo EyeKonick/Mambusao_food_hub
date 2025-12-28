@@ -1,3 +1,18 @@
+// ====================================================================
+// ENHANCED ADMIN REVIEW MODERATION PAGE
+// UI Enhancement Phase - Modern, Clean Design with Poppins Font
+// 
+// ENHANCEMENTS:
+// - Modern review cards with color-coded ratings
+// - Enhanced stats bar with gradient background
+// - Improved empty state design
+// - Better AppBar with modern sort menu
+// - Consistent spacing and typography
+// - Enhanced loading state
+// 
+// BUSINESS LOGIC: 100% PRESERVED - NO CHANGES
+// ====================================================================
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'config/app_config.dart';
@@ -11,6 +26,8 @@ class AdminReviewModerationPage extends StatefulWidget {
 }
 
 class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
+  // ==================== FIREBASE & STATE ====================
+  // NO CHANGES - Business logic preserved
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String _sortBy = 'recent'; // 'recent', 'rating_low', 'rating_high'
@@ -24,6 +41,7 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
   }
 
   // ==================== LOAD ALL REVIEWS ====================
+  // NO CHANGES - Business logic preserved
   Future<void> _loadAllReviews() async {
     try {
       setState(() => _isLoading = true);
@@ -71,6 +89,7 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
   }
 
   // ==================== SORT REVIEWS ====================
+  // NO CHANGES - Business logic preserved
   void _sortReviews() {
     setState(() {
       switch (_sortBy) {
@@ -93,21 +112,52 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
   }
 
   // ==================== DELETE REVIEW ====================
+  // ENHANCED UI - Dialog styling improved, logic preserved
   Future<void> _deleteReview(String businessId, String reviewId, String businessName) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Review'),
-        content: Text('Permanently delete this review from $businessName?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        title: Text(
+          'Delete Review',
+          style: AppTheme.headlineMedium,
+        ),
+        content: Text(
+          'Permanently delete this review from $businessName?',
+          style: AppTheme.bodyLarge,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: AppTheme.labelLarge.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed),
-            child: const Text('Delete'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+            ),
+            child: Text(
+              'Delete',
+              style: AppTheme.labelLarge.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -115,6 +165,7 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
 
     if (confirm != true) return;
 
+    // NO CHANGES - Firebase delete logic preserved
     try {
       await _firestore
           .collection(AppConfig.businessesCollection)
@@ -125,16 +176,23 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Review deleted'),
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Review deleted',
+                style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+              ),
             ],
           ),
           backgroundColor: AppTheme.successGreen,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          duration: const Duration(seconds: 2),
         ),
       );
 
@@ -144,14 +202,29 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Error: $e',
+                  style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
           backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     }
   }
 
-  // ==================== BUILD REVIEW CARD ====================
+  // ==================== BUILD REVIEW CARD (ENHANCED) ====================
   Widget _buildReviewCard(Map<String, dynamic> reviewData) {
     final businessName = reviewData['businessName'];
     final reviewerName = reviewData['reviewerName'];
@@ -159,6 +232,7 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
     final comment = reviewData['comment'];
     final timestamp = reviewData['timestamp'] as Timestamp?;
     
+    // NO CHANGES - Date formatting logic preserved
     String formattedDate = 'Unknown date';
     String relativeTime = '';
     if (timestamp != null) {
@@ -179,6 +253,7 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
       }
     }
 
+    // NO CHANGES - Rating color logic preserved
     Color ratingColor;
     if (rating >= 4.0) {
       ratingColor = AppTheme.successGreen;
@@ -188,32 +263,42 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
       ratingColor = AppTheme.errorRed;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    // ENHANCED UI - Modern card design
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.space16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.space16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Business Name Tag
+            // Business Name Tag (Enhanced)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space12,
+                vertical: AppTheme.space8,
+              ),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primaryGreen.withOpacity(0.1),
-                    AppTheme.secondaryGreen.withOpacity(0.1),
-                  ],
+                color: AppTheme.primaryGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(
+                  color: AppTheme.primaryGreen.withOpacity(0.2),
+                  width: 1,
                 ),
-                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.store, size: 16, color: AppTheme.primaryGreen),
-                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.store,
+                    size: 18,
+                    color: AppTheme.primaryGreen,
+                  ),
+                  const SizedBox(width: AppTheme.space8),
                   Flexible(
                     child: Text(
                       businessName,
@@ -227,29 +312,47 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.space16),
 
-            // Reviewer Info and Rating
+            // Reviewer Info and Rating (Enhanced)
             Row(
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: AppTheme.accentBlue.withOpacity(0.1),
-                  child: Text(
-                    reviewerName[0].toUpperCase(),
-                    style: TextStyle(
-                      color: AppTheme.accentBlue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                // User Avatar
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppTheme.accentBlue.withOpacity(0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      reviewerName[0].toUpperCase(),
+                      style: AppTheme.titleLarge.copyWith(
+                        color: AppTheme.accentBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppTheme.space12),
+                
+                // Reviewer Name & Date
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(reviewerName, style: AppTheme.titleMedium),
+                      Text(
+                        reviewerName,
+                        style: AppTheme.titleMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space4),
                       Text(
                         '$relativeTime • $formattedDate',
                         style: AppTheme.bodySmall.copyWith(
@@ -259,16 +362,26 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                     ],
                   ),
                 ),
+                
+                // Rating Badge (Enhanced)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space12,
+                    vertical: AppTheme.space8,
+                  ),
                   decoration: BoxDecoration(
                     color: ratingColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                    border: Border.all(
+                      color: ratingColor.withOpacity(0.3),
+                      width: 1.5,
+                    ),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.star, size: 18, color: ratingColor),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppTheme.space4),
                       Text(
                         rating.toStringAsFixed(1),
                         style: AppTheme.titleMedium.copyWith(
@@ -281,39 +394,75 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.space16),
 
-            // Comment
+            // Comment (Enhanced)
             Container(
-              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppTheme.space16),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.backgroundLight,
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(
+                  color: AppTheme.borderLight,
+                  width: 1,
+                ),
               ),
               child: Text(
                 comment,
-                style: AppTheme.bodyMedium.copyWith(height: 1.6),
+                style: AppTheme.bodyMedium.copyWith(
+                  height: 1.6,
+                  color: AppTheme.textPrimary,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.space16),
 
-            // Actions
+            // Actions (Enhanced)
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton.icon(
-                  onPressed: () => _deleteReview(
-                    reviewData['businessId'],
-                    reviewData['reviewId'],
-                    businessName,
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    border: Border.all(
+                      color: AppTheme.errorRed,
+                      width: 1.5,
+                    ),
                   ),
-                  icon: const Icon(Icons.delete, size: 18),
-                  label: const Text('Delete Review'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.errorRed,
-                    side: BorderSide(color: AppTheme.errorRed),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _deleteReview(
+                        reviewData['businessId'],
+                        reviewData['reviewId'],
+                        businessName,
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.space16,
+                          vertical: AppTheme.space12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.delete_outline,
+                              size: 20,
+                              color: AppTheme.errorRed,
+                            ),
+                            const SizedBox(width: AppTheme.space8),
+                            Text(
+                              'Delete Review',
+                              style: AppTheme.labelLarge.copyWith(
+                                color: AppTheme.errorRed,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -325,58 +474,145 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
     );
   }
 
-  // ==================== BUILD EMPTY STATE ====================
+  // ==================== BUILD EMPTY STATE (ENHANCED) ====================
   Widget _buildEmptyState() {
     return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.space32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon Container
+            Container(
+              padding: const EdgeInsets.all(AppTheme.space32),
+              decoration: BoxDecoration(
+                color: AppTheme.successGreen.withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.successGreen.withOpacity(0.3),
+                  width: 3,
+                ),
+              ),
+              child: Icon(
+                Icons.rate_review_outlined,
+                size: 80,
+                color: AppTheme.successGreen.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: AppTheme.space32),
+            
+            // Title
+            Text(
+              'No Reviews Yet',
+              style: AppTheme.headlineMedium.copyWith(
+                fontSize: 24,
+              ),
+            ),
+            const SizedBox(height: AppTheme.space12),
+            
+            // Description
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
+              child: Text(
+                'Reviews will appear here once users\nstart sharing their experiences',
+                style: AppTheme.bodyLarge.copyWith(
+                  color: AppTheme.textSecondary,
+                  height: 1.6,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== BUILD STAT ITEM (ENHANCED) ====================
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.space12),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.successGreen.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.rate_review,
-              size: 80,
-              color: AppTheme.successGreen,
-            ),
+          // Icon + Value
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              Text(
+                value,
+                style: AppTheme.displayMedium.copyWith(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          Text('No Reviews Yet', style: AppTheme.headingMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppTheme.space8),
+          
+          // Label
           Text(
-            'Reviews will appear here once users\nstart sharing their experiences',
-            style: AppTheme.bodyMedium.copyWith(
+            label,
+            style: AppTheme.bodySmall.copyWith(
               color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  // ==================== BUILD METHOD ====================
+  // ==================== CALCULATE AVERAGE RATING ====================
+  // NO CHANGES - Business logic preserved
+  double _calculateAverageRating() {
+    if (_allReviews.isEmpty) return 0.0;
+    double total = 0;
+    for (var review in _allReviews) {
+      total += review['rating'];
+    }
+    return total / _allReviews.length;
+  }
+
+  // ==================== BUILD METHOD (ENHANCED) ====================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text('Review Moderation'),
+        title: Text(
+          'Review Moderation',
+          style: AppTheme.titleLarge.copyWith(
+            color: Colors.white,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: AppTheme.primaryGreen,
         elevation: 0,
         actions: [
+          // Sort Button (Enhanced)
           PopupMenuButton<String>(
             icon: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(AppTheme.space8),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               ),
-              child: const Icon(Icons.sort),
+              child: const Icon(Icons.sort, color: Colors.white),
             ),
             tooltip: 'Sort Reviews',
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
             onSelected: (value) {
               setState(() {
                 _sortBy = value;
@@ -391,14 +627,14 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                     Icon(
                       Icons.access_time,
                       size: 20,
-                      color: _sortBy == 'recent' ? AppTheme.primaryGreen : null,
+                      color: _sortBy == 'recent' ? AppTheme.primaryGreen : AppTheme.textSecondary,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppTheme.space12),
                     Text(
                       'Most Recent',
-                      style: TextStyle(
-                        fontWeight: _sortBy == 'recent' ? FontWeight.bold : null,
-                        color: _sortBy == 'recent' ? AppTheme.primaryGreen : null,
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: _sortBy == 'recent' ? FontWeight.bold : FontWeight.normal,
+                        color: _sortBy == 'recent' ? AppTheme.primaryGreen : AppTheme.textPrimary,
                       ),
                     ),
                   ],
@@ -411,14 +647,14 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                     Icon(
                       Icons.arrow_downward,
                       size: 20,
-                      color: _sortBy == 'rating_low' ? AppTheme.primaryGreen : null,
+                      color: _sortBy == 'rating_low' ? AppTheme.primaryGreen : AppTheme.textSecondary,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppTheme.space12),
                     Text(
                       'Lowest Rating',
-                      style: TextStyle(
-                        fontWeight: _sortBy == 'rating_low' ? FontWeight.bold : null,
-                        color: _sortBy == 'rating_low' ? AppTheme.primaryGreen : null,
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: _sortBy == 'rating_low' ? FontWeight.bold : FontWeight.normal,
+                        color: _sortBy == 'rating_low' ? AppTheme.primaryGreen : AppTheme.textPrimary,
                       ),
                     ),
                   ],
@@ -431,14 +667,14 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                     Icon(
                       Icons.arrow_upward,
                       size: 20,
-                      color: _sortBy == 'rating_high' ? AppTheme.primaryGreen : null,
+                      color: _sortBy == 'rating_high' ? AppTheme.primaryGreen : AppTheme.textSecondary,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppTheme.space12),
                     Text(
                       'Highest Rating',
-                      style: TextStyle(
-                        fontWeight: _sortBy == 'rating_high' ? FontWeight.bold : null,
-                        color: _sortBy == 'rating_high' ? AppTheme.primaryGreen : null,
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: _sortBy == 'rating_high' ? FontWeight.bold : FontWeight.normal,
+                        color: _sortBy == 'rating_high' ? AppTheme.primaryGreen : AppTheme.textPrimary,
                       ),
                     ),
                   ],
@@ -446,49 +682,87 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
               ),
             ],
           ),
+          
+          // Refresh Button
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Refresh',
             onPressed: _loadAllReviews,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primaryGreen,
+                      strokeWidth: 4,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space24),
+                  Text(
+                    'Loading reviews...',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : _allReviews.isEmpty
               ? _buildEmptyState()
               : Column(
                   children: [
-                    // Stats Bar
+                    // Stats Bar (Enhanced)
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space16,
+                        vertical: AppTheme.space20,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                           colors: [
                             AppTheme.primaryGreen.withOpacity(0.1),
                             AppTheme.secondaryGreen.withOpacity(0.05),
                           ],
                         ),
+                        border: const Border(
+                          bottom: BorderSide(
+                            color: AppTheme.borderLight,
+                            width: 1,
+                          ),
+                        ),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          _buildStatItem(
-                            'Total Reviews',
-                            _allReviews.length.toString(),
-                            Icons.rate_review,
-                            AppTheme.accentBlue,
+                          Expanded(
+                            child: _buildStatItem(
+                              'Total Reviews',
+                              _allReviews.length.toString(),
+                              Icons.rate_review,
+                              AppTheme.accentBlue,
+                            ),
                           ),
                           Container(
                             width: 1,
-                            height: 40,
-                            color: AppTheme.textSecondary.withOpacity(0.2),
+                            height: 60,
+                            color: AppTheme.borderLight,
                           ),
-                          _buildStatItem(
-                            'Avg Rating',
-                            _calculateAverageRating().toStringAsFixed(1),
-                            Icons.star,
-                            AppTheme.accentYellow,
+                          Expanded(
+                            child: _buildStatItem(
+                              'Avg Rating',
+                              _calculateAverageRating().toStringAsFixed(1),
+                              Icons.star,
+                              AppTheme.accentYellow,
+                            ),
                           ),
                         ],
                       ),
@@ -498,8 +772,9 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: _loadAllReviews,
+                        color: AppTheme.primaryGreen,
                         child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(AppTheme.space16),
                           itemCount: _allReviews.length,
                           itemBuilder: (context, index) {
                             return _buildReviewCard(_allReviews[index]);
@@ -511,39 +786,10 @@ class _AdminReviewModerationPageState extends State<AdminReviewModerationPage> {
                 ),
     );
   }
-
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
-        ),
-      ],
-    );
-  }
-
-  double _calculateAverageRating() {
-    if (_allReviews.isEmpty) return 0.0;
-    double total = 0;
-    for (var review in _allReviews) {
-      total += review['rating'];
-    }
-    return total / _allReviews.length;
-  }
 }
+
+// ====================================================================
+// END OF ENHANCED ADMIN REVIEW MODERATION PAGE
+// Business Logic: 100% Preserved
+// UI: Fully Enhanced with Modern Design
+// ====================================================================

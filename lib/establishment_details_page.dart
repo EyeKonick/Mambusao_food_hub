@@ -1,3 +1,15 @@
+// ====================================================================
+// ENHANCED ESTABLISHMENT DETAILS PAGE - PART 1
+// UI Enhancement Phase - Modern, Clean Design with Poppins Font
+// 
+// PART 1 INCLUDES:
+// - Imports
+// - Class setup and state variables
+// - Initialization
+// - Bookmark handling
+// - Label selection dialog
+// ====================================================================
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,7 +27,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'business_route_map_page.dart';
-
 
 class EstablishmentDetailsPage extends StatefulWidget {
   final String establishmentId;
@@ -50,157 +61,282 @@ class _EstablishmentDetailsPageState extends State<EstablishmentDetailsPage> {
     ViewTrackingService.trackBusinessView(widget.establishmentId);
   }
 
-  // ==================== BOOKMARK HANDLING ====================
- Future<void> _handleBookmarkTap(
-  String businessName,
-  String businessType,
-) async {
-  final user = FirebaseAuth.instance.currentUser;
+  // ==================== BOOKMARK HANDLING (ENHANCED UI) ====================
+  Future<void> _handleBookmarkTap(
+    String businessName,
+    String businessType,
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
 
-  if (user == null || user.isAnonymous) {
-    if (!mounted) return;
-    
-    final shouldSignIn = await showDialog<bool>(
+    if (user == null || user.isAnonymous) {
+      if (!mounted) return;
+      
+      final shouldSignIn = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          title: Text(
+            'Sign In Required',
+            style: AppTheme.headlineMedium,
+          ),
+          content: Text(
+            'You need to create an account or sign in to bookmark restaurants.',
+            style: AppTheme.bodyLarge,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: AppTheme.labelLarge.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
+              child: Text(
+                'Sign In',
+                style: AppTheme.labelLarge.copyWith(
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSignIn == true && mounted) {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserAuthPage()),
+        );
+
+        if (result == true && mounted) {
+          await _handleBookmarkTap(businessName, businessType);
+        }
+      }
+      return;
+    }
+
+    // Check if already bookmarked
+    final isCurrentlyBookmarked = await _bookmarkService.isBookmarked(widget.establishmentId);
+
+    if (isCurrentlyBookmarked) {
+      // Already bookmarked - just remove it
+      final success = await _bookmarkService.removeBookmark(widget.establishmentId);
+      
+      if (!mounted) return;
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Removed from bookmarks',
+              style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+            ),
+            backgroundColor: AppTheme.textSecondary,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
+        );
+      }
+    } else {
+      // Not bookmarked - show label selection dialog
+      final label = await _showLabelSelectionDialog();
+      
+      if (label == null && !mounted) return; // User cancelled
+      
+      final success = await _bookmarkService.addBookmark(
+        businessId: widget.establishmentId,
+        businessName: businessName,
+        businessType: businessType,
+        label: label?.isEmpty ?? true ? null : label,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              label != null && label.isNotEmpty
+                  ? '✓ Added to "$label"'
+                  : '✓ Added to bookmarks',
+              style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+            ),
+            backgroundColor: AppTheme.successGreen,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update bookmark. Please try again.',
+              style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+            ),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // ==================== LABEL SELECTION DIALOG (ENHANCED UI) ====================
+  Future<String?> _showLabelSelectionDialog() async {
+    final labelColors = {
+      'Want to Try': AppTheme.accentYellow,
+      'Favorites': AppTheme.errorRed,
+      'Date Night': Colors.pink,
+      'Good for Groups': AppTheme.accentBlue,
+    };
+
+    return await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign In Required'),
-        content: const Text(
-          'You need to create an account or sign in to bookmark restaurants.',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        title: Text(
+          'Add Label (Optional)',
+          style: AppTheme.headlineMedium,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Predefined labels with enhanced design
+              ...labelColors.keys.map((label) => Container(
+                margin: const EdgeInsets.only(bottom: AppTheme.space8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.borderLight,
+                    width: 1,
+                  ),
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: labelColors[label],
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (labelColors[label] ?? Colors.grey).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  title: Text(
+                    label,
+                    style: AppTheme.titleMedium,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  onTap: () => Navigator.pop(context, label),
+                ),
+              )),
+              
+              const SizedBox(height: AppTheme.space8),
+              const Divider(),
+              const SizedBox(height: AppTheme.space8),
+              
+              // No label option
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.borderLight,
+                    width: 1,
+                  ),
+                ),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.bookmark_border,
+                    color: AppTheme.textSecondary,
+                  ),
+                  title: Text(
+                    'No Label',
+                    style: AppTheme.titleMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  onTap: () => Navigator.pop(context, ''),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sign In'),
+            onPressed: () => Navigator.pop(context, null),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: Text(
+              'Cancel',
+              style: AppTheme.labelLarge.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
           ),
         ],
       ),
     );
-
-    if (shouldSignIn == true && mounted) {
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const UserAuthPage()),
-      );
-
-      if (result == true && mounted) {
-        await _handleBookmarkTap(businessName, businessType);
-      }
-    }
-    return;
   }
 
-  // Check if already bookmarked
-  final isCurrentlyBookmarked = await _bookmarkService.isBookmarked(widget.establishmentId);
+  // [CONTINUED IN PART 2...]
+// ====================================================================
+// ENHANCED ESTABLISHMENT DETAILS PAGE - PART 2
+// UI Enhancement Phase - Modern, Clean Design with Poppins Font
+// 
+// PART 2 INCLUDES:
+// - Active Promotions Section (Enhanced)
+// - Section Title Widget (Enhanced)
+// - Menu Items List (Enhanced)
+// - Reviews List (Enhanced)
+// - Review Form Navigation
+// ====================================================================
 
-  if (isCurrentlyBookmarked) {
-    // Already bookmarked - just remove it
-    final success = await _bookmarkService.removeBookmark(widget.establishmentId);
-    
-    if (!mounted) return;
-    
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Removed from bookmarks'),
-          backgroundColor: AppTheme.textSecondary,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  } else {
-    // Not bookmarked - show label selection dialog
-    final label = await _showLabelSelectionDialog();
-    
-    if (label == null && !mounted) return; // User cancelled
-    
-    final success = await _bookmarkService.addBookmark(
-      businessId: widget.establishmentId,
-      businessName: businessName,
-      businessType: businessType,
-      label: label?.isEmpty ?? true ? null : label,
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            label != null && label.isNotEmpty
-                ? '✓ Added to "$label"'
-                : '✓ Added to bookmarks',
-          ),
-          backgroundColor: AppTheme.successGreen,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to update bookmark. Please try again.'),
-          backgroundColor: AppTheme.errorRed,
-        ),
-      );
-    }
-  }
-}
-
-// ==================== LABEL SELECTION DIALOG ====================
-Future<String?> _showLabelSelectionDialog() async {
-  final labelColors = {
-    'Want to Try': AppTheme.accentYellow,
-    'Favorites': AppTheme.errorRed,
-    'Date Night': Colors.pink,
-    'Good for Groups': AppTheme.accentBlue,
-  };
-
-  return await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Add Label (Optional)'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Predefined labels
-            ...labelColors.keys.map((label) => ListTile(
-              leading: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: labelColors[label],
-                  shape: BoxShape.circle,
-                ),
-              ),
-              title: Text(label),
-              onTap: () => Navigator.pop(context, label),
-            )),
-            
-            const Divider(),
-            
-            // No label option
-            ListTile(
-              leading: const Icon(Icons.bookmark_border, color: AppTheme.textSecondary),
-              title: const Text('No Label'),
-              onTap: () => Navigator.pop(context, ''),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: const Text('Cancel'),
-        ),
-      ],
-    ),
-  );
-}
-  // ==================== BUILD ACTIVE PROMOTIONS SECTION ====================
+  // ==================== BUILD ACTIVE PROMOTIONS SECTION (ENHANCED) ====================
   Widget _buildActivePromotionsSection() {
     return StreamBuilder<List<Promotion>>(
       stream: _promotionService.getActiveBusinessPromotions(widget.establishmentId),
@@ -215,723 +351,271 @@ Future<String?> _showLabelSelectionDialog() async {
           return const SizedBox.shrink();
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            
-            // Section Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentYellow.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.local_offer,
-                    color: AppTheme.accentYellow,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Active Promotions',
-                  style: AppTheme.headingMedium.copyWith(
-                    color: AppTheme.primaryGreen,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.errorRed,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${promotions.length} Offer${promotions.length > 1 ? 's' : ''}',
-                    style: AppTheme.bodySmall.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+        return Container(
+          margin: const EdgeInsets.only(top: AppTheme.space24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section Header - Enhanced
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentYellow.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
+                      child: const Icon(
+                        Icons.local_offer_rounded,
+                        color: AppTheme.accentYellow,
+                        size: 24,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: AppTheme.space12),
+                    Text(
+                      'Active Promotions',
+                      style: AppTheme.headlineMedium.copyWith(
+                        color: AppTheme.primaryGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space12,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentYellow,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                      ),
+                      child: Text(
+                        '${promotions.length}',
+                        style: AppTheme.labelMedium.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-
-            // Promotions List
-            ...promotions.map((promotion) => _buildPromotionCard(promotion)).toList(),
-            
-            const SizedBox(height: 24),
-            const Divider(),
-          ],
-        );
-      },
-    );
-  }
-
-  // ==================== BUILD PROMOTION CARD ====================
-  Widget _buildPromotionCard(Promotion promotion) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppTheme.accentYellow,
-              AppTheme.accentYellow.withOpacity(0.8),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Stack(
-          children: [
-            // Background Pattern
-            Positioned(
-              right: -15,
-              bottom: -15,
-              child: Icon(
-                Icons.local_offer,
-                size: 80,
-                color: Colors.white.withOpacity(0.1),
               ),
-            ),
-
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    promotion.title,
-                    style: AppTheme.headingMedium.copyWith(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 8),
-
-                  // Description
-                  Text(
-                    promotion.description,
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: Colors.white.withOpacity(0.95),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Validity Period
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+              
+              const SizedBox(height: AppTheme.space16),
+              
+              // Promotions List - Enhanced Cards
+              SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                  itemCount: promotions.length,
+                  itemBuilder: (context, index) {
+                    final promo = promotions[index];
+                    return Container(
+                      width: 320,
+                      margin: EdgeInsets.only(
+                        right: index < promotions.length - 1 ? AppTheme.space16 : 0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                        boxShadow: AppTheme.shadowCard,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.access_time,
-                              size: 14,
-                              color: AppTheme.errorRed,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              promotion.daysRemaining > 0
-                                  ? '${promotion.daysRemaining} days left'
-                                  : 'Ends today',
-                              style: AppTheme.bodySmall.copyWith(
-                                color: AppTheme.errorRed,
-                                fontWeight: FontWeight.bold,
+                            // Promo Image
+                            if (promo.imageUrl != null && promo.imageUrl!.isNotEmpty)
+                              Stack(
+                                children: [
+                                  Image.network(
+                                    promo.imageUrl!,
+                                    height: 120,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        height: 120,
+                                        color: AppTheme.lightGreen,
+                                        child: const Icon(
+                                          Icons.image_not_supported,
+                                          color: AppTheme.textHint,
+                                          size: 48,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  // Offer Badge
+                                  Positioned(
+                                    top: 12,
+                                    left: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.accentYellow,
+                                        borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.2),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.local_offer,
+                                            size: 14,
+                                            color: Colors.white,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'OFFER',
+                                            style: AppTheme.labelSmall.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            
+                            // Promo Details
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppTheme.space12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      promo.title,
+                                      style: AppTheme.titleMedium.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: AppTheme.space4),
+                                    Text(
+                                      promo.description,
+                                      style: AppTheme.bodySmall.copyWith(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      
-                      const Spacer(),
-
-                      // Status Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.successGreen,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          promotion.statusText,
-                          style: AppTheme.bodySmall.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // "SPECIAL OFFER" Badge
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.errorRed,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'SPECIAL OFFER',
-                  style: AppTheme.bodySmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    letterSpacing: 0.5,
-                  ),
+                    );
+                  },
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== BUILD HEADER WITH COVER IMAGE ====================
-  Widget _buildHeaderWithCoverAndLogo(Map<String, dynamic> data) {
-    final String? coverImageUrl = data['coverImageUrl'];
-    final String? logoUrl = data['logoUrl'];
-    const double logoSize = 100.0;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // Cover Image or Gradient Placeholder
-        Container(
-          width: double.infinity,
-          height: 200,
-          decoration: BoxDecoration(
-            gradient: coverImageUrl == null
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.primaryGreen,
-                      AppTheme.primaryGreen.withOpacity(0.7),
-                      AppTheme.secondaryGreen,
-                    ],
-                  )
-                : null,
-          ),
-          child: coverImageUrl != null
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Cover Image
-                    Image.network(
-                      coverImageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        // Fallback to gradient if image fails to load
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppTheme.primaryGreen,
-                                AppTheme.secondaryGreen,
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    // Dark gradient overlay for better logo visibility
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.6),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : null,
-        ),
-
-        // Logo (Overlapping cover image)
-        Positioned(
-          bottom: -50, // Half of logo size to create overlap
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Container(
-              height: logoSize,
-              width: logoSize,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    spreadRadius: 0,
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: logoUrl != null && logoUrl.isNotEmpty
-                  ? ClipOval(
-                      child: Image.network(
-                        logoUrl,
-                        height: logoSize,
-                        width: logoSize,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Center(
-                          child: Icon(
-                            Icons.storefront_rounded,
-                            color: AppTheme.secondaryGreen,
-                            size: 50,
-                          ),
-                        ),
-                      ),
-                    )
-                  : Center(
-                      child: Icon(
-                        Icons.storefront_rounded,
-                        color: AppTheme.secondaryGreen,
-                        size: 50,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==================== BUILD MENU ITEM IMAGE ====================
-  Widget _buildMenuItemImage(String? imageUrl) {
-    const double size = 70.0;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10.0),
-      child: Container(
-        height: size,
-        width: size,
-        color: AppTheme.secondaryGreen.withOpacity(0.2),
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Center(
-                  child: Icon(
-                    Icons.fastfood,
-                    color: AppTheme.primaryGreen,
-                    size: 30,
-                  ),
-                ),
-              )
-            : Center(
-                child: Icon(
-                  Icons.fastfood,
-                  color: AppTheme.primaryGreen,
-                  size: 30,
-                ),
-              ),
-      ),
-    );
-  }
-
-  // ==================== BUILD SECTION TITLE ====================
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: AppTheme.primaryGreen, size: 28),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: AppTheme.headingMedium.copyWith(
-            color: AppTheme.primaryGreen,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==================== BUILD DETAILS CARD ====================
-  Widget _buildDetailsCard(Map<String, dynamic> data) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildDetailRow(
-              Icons.location_on_outlined,
-              'Address',
-              data['businessAddress'] ?? 'N/A',
-            ),
-            const Divider(height: 20),
-            _buildDetailRow(
-              Icons.phone_outlined,
-              'Contact',
-              data['phoneNumber'] ?? 'N/A',
-            ),
-            const Divider(height: 20),
-            _buildDetailRow(
-              Icons.category_outlined,
-              'Type',
-              data['businessType'] ?? 'N/A',
-            ),
-            const Divider(height: 20),
-            _buildDetailRow(
-              Icons.email_outlined,
-              'Email',
-              data['email'] ?? 'N/A',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== BUILD DETAIL ROW ====================
-  Widget _buildDetailRow(IconData icon, String label, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: AppTheme.secondaryGreen, size: 24),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: AppTheme.bodySmall.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                text,
-                style: AppTheme.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
+              
+              const SizedBox(height: AppTheme.space24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                child: Divider(height: 1),
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-
-  // ==================== BUILD SOCIAL MEDIA LINKS ====================
-Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
-  final String? facebookUrl = data['facebookUrl'];
-  final String? instagramUrl = data['instagramUrl'];
-  final String? websiteUrl = data['websiteUrl'];
-
-  // Only show section if at least one link exists
-  if (facebookUrl == null && instagramUrl == null && websiteUrl == null) {
-    return const SizedBox.shrink();
-  }
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const SizedBox(height: 24),
-      
-      Row(
-        children: [
-          Icon(
-            Icons.link,
-            color: AppTheme.primaryGreen,
-            size: 28,
-          ),
-          const SizedBox(width: 10),
-          Text(
-            'Connect With Us',
-            style: AppTheme.headingMedium.copyWith(
-              color: AppTheme.primaryGreen,
-            ),
-          ),
-        ],
-      ),
-      
-      const SizedBox(height: 16),
-      
-      Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              if (facebookUrl != null) ...[
-                _buildSocialMediaButton(
-                  icon: Icons.facebook,
-                  label: 'Facebook',
-                  url: facebookUrl,
-                  color: const Color(0xFF1877F2), // Facebook blue
-                ),
-                if (instagramUrl != null || websiteUrl != null)
-                  const Divider(height: 20),
-              ],
-              
-              if (instagramUrl != null) ...[
-                _buildSocialMediaButton(
-                  icon: Icons.camera_alt,
-                  label: 'Instagram',
-                  url: instagramUrl,
-                  color: const Color(0xFFE4405F), // Instagram pink
-                ),
-                if (websiteUrl != null)
-                  const Divider(height: 20),
-              ],
-              
-              if (websiteUrl != null)
-                _buildSocialMediaButton(
-                  icon: Icons.language,
-                  label: 'Website',
-                  url: websiteUrl,
-                  color: AppTheme.accentBlue,
-                ),
-            ],
-          ),
-        ),
-      ),
-      
-      const SizedBox(height: 24),
-      const Divider(),
-    ],
-  );
-}
-
-// ==================== BUILD SOCIAL MEDIA BUTTON ====================
-  Widget _buildSocialMediaButton({
-    required IconData icon,
-    required String label,
-    required String url,
-    required Color color,
-  }) {
-    return InkWell(
-      onTap: () => _launchUrl(url),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: AppTheme.titleMedium.copyWith(
-                      color: AppTheme.primaryGreen,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Visit our $label page',
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.open_in_new,
-              color: AppTheme.textSecondary,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== LAUNCH URL ====================
-  Future<void> _launchUrl(String urlString) async {
-    try {
-      final Uri url = Uri.parse(urlString);
-      
-      if (await canLaunchUrl(url)) {
-        await launchUrl(
-          url,
-          mode: LaunchMode.externalApplication, // Opens in browser
-        );
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Could not open $urlString'),
-              backgroundColor: AppTheme.errorRed,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening link: $e'),
-            backgroundColor: AppTheme.errorRed,
-          ),
-        );
-      }
-    }
-  }
-
-  // ==================== BUILD RATING AND REVIEW INFO ====================
-  Widget _buildRatingAndReviewInfo() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection(AppConfig.businessesCollection)
-          .doc(widget.establishmentId)
-          .collection(AppConfig.reviewsSubcollection)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-
-        double averageRating = 0.0;
-        final reviews = snapshot.data!.docs;
-
-        if (reviews.isNotEmpty) {
-          double totalRating = 0;
-          for (var doc in reviews) {
-            totalRating +=
-                (doc.data() as Map<String, dynamic>)['rating'] as num? ?? 0.0;
-          }
-          averageRating = totalRating / reviews.length;
-        }
-        int reviewCount = reviews.length;
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.star_rounded,
-              color: AppTheme.accentYellow,
-              size: 36,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              averageRating > 0 ? averageRating.toStringAsFixed(1) : '—',
-              style: AppTheme.headingLarge.copyWith(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              '($reviewCount ratings)',
-              style: AppTheme.bodyLarge.copyWith(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
         );
       },
     );
   }
 
-  // ==================== BUILD MENU ITEMS LIST ====================
+  // ==================== BUILD SECTION TITLE (ENHANCED) ====================
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppTheme.space8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+            child: Icon(
+              icon,
+              color: AppTheme.primaryGreen,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: AppTheme.space12),
+          Text(
+            title,
+            style: AppTheme.headlineMedium.copyWith(
+              color: AppTheme.primaryGreen,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== BUILD MENU ITEMS LIST (ENHANCED) ====================
   Widget _buildMenuItemsList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection(AppConfig.businessesCollection)
           .doc(widget.establishmentId)
           .collection(AppConfig.menuItemsSubcollection)
-          .orderBy('createdAt', descending: false)
+          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppTheme.space24),
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
+              ),
+            ),
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+            child: Container(
+              padding: const EdgeInsets.all(AppTheme.space16),
+              decoration: BoxDecoration(
+                color: AppTheme.errorRed.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.menu_book,
-                    size: 64,
-                    color: AppTheme.primaryGreen.withOpacity(0.3),
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppTheme.errorRed,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No menu items available yet.',
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: AppTheme.textSecondary,
+                  const SizedBox(width: AppTheme.space12),
+                  Expanded(
+                    child: Text(
+                      'Error loading menu items',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.errorRed,
+                      ),
                     ),
                   ),
                 ],
@@ -940,107 +624,156 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
           );
         }
 
-        final menuItems = snapshot.data!.docs;
-        return ListView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemCount: menuItems.length,
-          itemBuilder: (context, index) {
-            var item = menuItems[index].data() as Map<String, dynamic>;
-            final String? imageUrl = item['imageUrl'];
-            final bool isAvailable = item['isAvailable'] ?? true;
+        final docs = snapshot.data?.docs ?? [];
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+            child: Container(
+              padding: const EdgeInsets.all(AppTheme.space24),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundLight,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                border: Border.all(
+                  color: AppTheme.borderLight,
+                  width: 1,
+                ),
               ),
-              elevation: 4,
-              child: Opacity(
-                opacity: isAvailable ? 1.0 : 0.5,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 8.0,
-                    horizontal: 16.0,
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.menu_book_outlined,
+                    size: 64,
+                    color: AppTheme.textHint,
                   ),
-                  leading: _buildMenuItemImage(imageUrl),
-                  title: Row(
+                  const SizedBox(height: AppTheme.space12),
+                  Text(
+                    'No menu items yet',
+                    style: AppTheme.titleMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space4),
+                  Text(
+                    'This restaurant hasn\'t added their menu',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textHint,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Enhanced Menu Items Grid
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: AppTheme.space12,
+              mainAxisSpacing: AppTheme.space12,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final data = docs[index].data() as Map<String, dynamic>;
+              final itemName = data['itemName'] ?? 'Unnamed Item';
+              final price = data['price'] ?? 0.0;
+              final photoUrl = data['photoUrl'] as String?;
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.shadowCardLight,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Menu Item Image
+                      AspectRatio(
+                        aspectRatio: 1,
+                        child: photoUrl != null && photoUrl.isNotEmpty
+                            ? Image.network(
+                                photoUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: AppTheme.lightGreen,
+                                    child: const Icon(
+                                      Icons.restaurant,
+                                      size: 48,
+                                      color: AppTheme.textHint,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: AppTheme.lightGreen,
+                                child: const Icon(
+                                  Icons.restaurant,
+                                  size: 48,
+                                  color: AppTheme.textHint,
+                                ),
+                              ),
+                      ),
+                      
+                      // Menu Item Details
                       Expanded(
-                        child: Text(
-                          item['name'] ?? 'No Name',
-                          style: AppTheme.titleMedium.copyWith(
-                            color: AppTheme.primaryGreen,
-                            decoration: isAvailable
-                                ? null
-                                : TextDecoration.lineThrough,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppTheme.space12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                itemName,
+                                style: AppTheme.titleSmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTheme.space8,
+                                  vertical: AppTheme.space4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryGreen,
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                ),
+                                child: Text(
+                                  '₱${price.toStringAsFixed(2)}',
+                                  style: AppTheme.labelMedium.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      if (!isAvailable)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.errorRed.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'OUT',
-                            style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.errorRed,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item['description'] ?? 'No Description',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (item['category'] != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            item['category'],
-                            style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.primaryGreen,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  trailing: Text(
-                    '₱${(item['price'] as num?)?.toStringAsFixed(2) ?? 'N/A'}',
-                    style: AppTheme.titleMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryGreen,
-                    ),
-                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
   }
 
-  // ==================== BUILD REVIEWS LIST ====================
+  // ==================== BUILD REVIEWS LIST (FIXED - BUGS #2 & #3) ====================
   Widget _buildReviewsList(String businessName) {
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
@@ -1051,32 +784,38 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(AppTheme.space24),
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
+              ),
+            ),
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+            child: Container(
+              padding: const EdgeInsets.all(AppTheme.space16),
+              decoration: BoxDecoration(
+                color: AppTheme.errorRed.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.rate_review,
-                    size: 64,
-                    color: AppTheme.primaryGreen.withOpacity(0.3),
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppTheme.errorRed,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No reviews yet.',
-                    style: AppTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Be the first to share your experience!',
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: AppTheme.textSecondary,
+                  const SizedBox(width: AppTheme.space12),
+                  Expanded(
+                    child: Text(
+                      'Error loading reviews',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.errorRed,
+                      ),
                     ),
                   ),
                 ],
@@ -1085,144 +824,262 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
           );
         }
 
-        final reviews = snapshot.data!.docs;
-        return ListView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemCount: reviews.length,
-          itemBuilder: (context, index) {
-            var review = reviews[index].data() as Map<String, dynamic>;
+        final docs = snapshot.data?.docs ?? [];
 
-            String formattedDate = '';
-            Timestamp? timestamp = review['timestamp'] as Timestamp?;
-            if (timestamp != null) {
-              formattedDate = timestamp.toDate().toString().split(' ')[0];
-            } else {
-              formattedDate = 'Unknown Date';
-            }
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+            child: Container(
+              padding: const EdgeInsets.all(AppTheme.space24),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundLight,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                border: Border.all(
+                  color: AppTheme.borderLight,
+                  width: 1,
+                ),
               ),
-              elevation: 4,
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.rate_review_outlined,
+                    size: 64,
+                    color: AppTheme.textHint,
+                  ),
+                  const SizedBox(height: AppTheme.space12),
+                  Text(
+                    'No reviews yet',
+                    style: AppTheme.titleMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space4),
+                  Text(
+                    'Be the first to review $businessName!',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textHint,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppTheme.space16),
+                  ElevatedButton.icon(
+                    onPressed: () => _navigateToReviewForm(businessName),
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Write First Review'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Enhanced Review Cards with User Name Fetch and Owner Replies
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+          itemCount: docs.length,
+          separatorBuilder: (context, index) => const SizedBox(height: AppTheme.space16),
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final userId = data['userId'] as String?;
+            final rating = (data['rating'] ?? 0).toDouble();
+            final comment = data['comment'] ?? '';
+            final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+            
+            // 🐛 BUG #3 FIX: Get owner reply data
+            final ownerReply = data['ownerReply'] as String?;
+            final ownerReplyTimestamp = (data['ownerReplyTimestamp'] as Timestamp?)?.toDate();
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: AppTheme.shadowCardLight,
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(AppTheme.space16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Review Header (Reviewer Name + Rating)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                review['reviewerName'] ?? 'Anonymous User',
-                                style: AppTheme.titleMedium.copyWith(
-                                  color: AppTheme.primaryGreen,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                formattedDate,
-                                style: AppTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
+                    // 🐛 BUG #2 FIX: Fetch user name from Firestore users collection
+                    FutureBuilder<DocumentSnapshot>(
+                      future: userId != null
+                          ? _firestore.collection('users').doc(userId).get()
+                          : null,
+                      builder: (context, userSnapshot) {
+                        // Default to stored userName or 'Anonymous'
+                        String displayName = data['userName'] ?? 'Anonymous';
+                        
+                        // If user document exists, use their display name
+                        if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                          final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                          displayName = userData['displayName'] ?? 
+                                       userData['name'] ?? 
+                                       userData['email']?.split('@')[0] ?? 
+                                       'User';
+                        }
+
+                        return Row(
                           children: [
-                            Text(
-                              '${(review['rating'] as num?)?.toStringAsFixed(1) ?? 'N/A'}',
-                              style: AppTheme.titleMedium.copyWith(
-                                fontWeight: FontWeight.bold,
+                            // User Avatar
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A',
+                                  style: AppTheme.titleLarge.copyWith(
+                                    color: AppTheme.primaryGreen,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.star_rounded,
-                              color: AppTheme.accentYellow,
-                              size: 24,
+                            const SizedBox(width: AppTheme.space12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    displayName,
+                                    style: AppTheme.titleMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppTheme.space4),
+                                  if (timestamp != null)
+                                    Text(
+                                      _formatDate(timestamp),
+                                      style: AppTheme.bodySmall.copyWith(
+                                        color: AppTheme.textHint,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            // Star Rating
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.space12,
+                                vertical: AppTheme.space4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentYellow.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star,
+                                    size: 16,
+                                    color: AppTheme.accentYellow,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    rating.toStringAsFixed(1),
+                                    style: AppTheme.labelLarge.copyWith(
+                                      color: AppTheme.accentYellow,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                    const Divider(height: 20, thickness: 1),
+                    
+                    const SizedBox(height: AppTheme.space12),
                     
                     // Review Comment
                     Text(
-                      review['comment'] ?? 'No comment provided.',
+                      comment,
                       style: AppTheme.bodyMedium.copyWith(
                         color: AppTheme.textPrimary,
-                        height: 1.4,
+                        height: 1.5,
                       ),
                     ),
-                    
-                    // Business Owner Reply (CORRECTED FIELD NAMES)
-                    if (review['businessReply'] != null && (review['businessReply'] as String).isNotEmpty) ...[
-                      const SizedBox(height: 16),
+
+                    // 🐛 BUG #3 FIX: Display Owner Reply if it exists
+                    if (ownerReply != null && ownerReply.isNotEmpty) ...[
+                      const SizedBox(height: AppTheme.space16),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(AppTheme.space12),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppTheme.lightGreen.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                           border: Border.all(
-                            color: AppTheme.primaryGreen.withOpacity(0.3),
+                            color: AppTheme.primaryGreen.withOpacity(0.2),
                             width: 1,
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Reply Header
+                            // Owner Reply Header
                             Row(
                               children: [
-                                Icon(
-                                  Icons.storefront,
-                                  color: AppTheme.primaryGreen,
-                                  size: 18,
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryGreen,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.store,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: AppTheme.space8),
                                 Expanded(
-                                  child: Text(
-                                    businessName,
-                                    style: AppTheme.titleMedium.copyWith(
-                                      color: AppTheme.primaryGreen,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Response from Owner',
+                                        style: AppTheme.labelLarge.copyWith(
+                                          color: AppTheme.primaryGreen,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (ownerReplyTimestamp != null)
+                                        Text(
+                                          _formatDate(ownerReplyTimestamp),
+                                          style: AppTheme.bodySmall.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                const Spacer(),
-                                if (review['businessRepliedAt'] != null)
-                                  Text(
-                                    (review['businessRepliedAt'] as Timestamp)
-                                        .toDate()
-                                        .toString()
-                                        .split(' ')[0],
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            
-                            // Reply Text
+                            const SizedBox(height: AppTheme.space8),
+                            // Owner Reply Text
                             Text(
-                              review['businessReply'] as String,
+                              ownerReply,
                               style: AppTheme.bodyMedium.copyWith(
                                 color: AppTheme.textPrimary,
-                                height: 1.4,
+                                height: 1.5,
                               ),
                             ),
                           ],
@@ -1238,10 +1095,79 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
       },
     );
   }
+  
+  // ==================== REVIEW FORM NAVIGATION ====================
+  Future<void> _navigateToReviewForm(String businessName) async {
+    final user = FirebaseAuth.instance.currentUser;
 
-  // ==================== NAVIGATE TO REVIEW FORM ====================
-  void _navigateToReviewForm(String businessName) {
-    Navigator.of(context).push(
+    if (user == null || user.isAnonymous) {
+      if (!mounted) return;
+      
+      final shouldSignIn = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          title: Text(
+            'Sign In Required',
+            style: AppTheme.headlineMedium,
+          ),
+          content: Text(
+            'You need to create an account or sign in to write a review.',
+            style: AppTheme.bodyLarge,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: AppTheme.labelLarge.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryGreen,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
+              child: Text(
+                'Sign In',
+                style: AppTheme.labelLarge.copyWith(
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSignIn == true && mounted) {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserAuthPage()),
+        );
+
+        if (result == true && mounted) {
+          await _navigateToReviewForm(businessName);
+        }
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
       MaterialPageRoute(
         builder: (context) => UserReviewForm(
           establishmentId: widget.establishmentId,
@@ -1251,28 +1177,56 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
     );
   }
 
-  // ==================== GET USER LOCATION ====================
-  Future<void> _getUserLocation() async {
-    setState(() => _isLoadingLocation = true);
-    
+  // ==================== HELPER: FORMAT DATE ====================
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays == 0) {
+      return 'Today';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays < 30) {
+      final weeks = (difference.inDays / 7).floor();
+      return '$weeks ${weeks == 1 ? 'week' : 'weeks'} ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return '$months ${months == 1 ? 'month' : 'months'} ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return '$years ${years == 1 ? 'year' : 'years'} ago';
+    }
+  }
+
+  // [CONTINUED IN PART 3...]
+// ====================================================================
+// ENHANCED ESTABLISHMENT DETAILS PAGE - PART 3
+// UI ENHANCEMENT PHASE - MODERN, CLEAN DESIGN WITH POPPINS FONT
+// 
+// PART 3 INCLUDES:
+// - ROUTE MAP NAVIGATION
+// - SOCIAL MEDIA LAUNCH
+// - MAIN BUILD METHOD
+// - HERO HEADER WITH COVER IMAGE
+// - BUSINESS INFO CARD WITH RATING
+// - BUSINESS DETAILS SECTION
+// - PHOTO GALLERY SECTION
+// ====================================================================
+
+  // ==================== NAVIGATE TO ROUTE MAP ====================
+  Future<void> _navigateToRouteMap({
+    required double businessLat,
+    required double businessLng,
+    required String businessName,
+  }) async {
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services disabled');
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('Location permission denied');
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permissions permanently denied');
-      }
-
+      // Get user's current location
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -1282,59 +1236,85 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
         _isLoadingLocation = false;
       });
 
-      if (AppConfig.enableDebugMode) {
-        debugPrint('✓ User location: ${position.latitude}, ${position.longitude}');
-      }
+      if (!mounted) return;
+
+      // Navigate to route map
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BusinessRouteMapPage(
+            businessLat: businessLat,
+            businessLng: businessLng,
+            businessName: businessName,
+            userLat: position.latitude,
+            userLng: position.longitude,
+          ),
+        ),
+      );
     } catch (e) {
-      setState(() => _isLoadingLocation = false);
-      
-      if (mounted) {
+      setState(() {
+        _isLoadingLocation = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to get your location. Please enable location services.',
+            style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ==================== LAUNCH SOCIAL MEDIA ====================
+  Future<void> _launchUrl(String urlString) async {
+    try {
+      final uri = Uri.parse(urlString);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Location error: $e'),
+            content: Text(
+              'Could not open link',
+              style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+            ),
             backgroundColor: AppTheme.errorRed,
-            action: SnackBarAction(
-              label: 'Settings',
-              textColor: Colors.white,
-              onPressed: () async {
-                await Geolocator.openLocationSettings();
-              },
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
           ),
         );
       }
-    }
-  }
-
-  // ==================== NAVIGATE TO ROUTE MAP ====================
-  void _navigateToRouteMap({
-    required double businessLat,
-    required double businessLng,
-    required String businessName,
-  }) async {
-    // Get user location if not available
-    if (_userLocation == null) {
-      await _getUserLocation();
-      if (_userLocation == null) return; // Still null = failed to get location
-    }
-
-    if (!mounted) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BusinessRouteMapPage(
-          userLat: _userLocation!.latitude,
-          userLng: _userLocation!.longitude,
-          businessLat: businessLat,
-          businessLng: businessLng,
-          businessName: businessName,
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Invalid URL format',
+            style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
-  // ==================== BUILD METHOD ====================
+  // ==================== MAIN BUILD METHOD (ENHANCED) ====================
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -1344,279 +1324,865 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Loading Details'),
-            ),
+          return const Scaffold(
             body: Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-            ),
-          );
-        }
-
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Error'),
-            ),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: AppTheme.errorRed,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Business not found.',
-                    style: AppTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
               ),
             ),
           );
         }
 
-        var data = snapshot.data!.data() as Map<String, dynamic>;
-        final String businessName = data['businessName'] ?? 'Unnamed Business';
-        final String businessType = data['businessType'] ?? 'Restaurant';
-        final String? logoUrl = data['logoUrl'];
-        final String description = data['description'] ?? 'No description available.';
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(
+                'Error',
+                style: AppTheme.titleLarge.copyWith(color: Colors.white),
+              ),
+              backgroundColor: AppTheme.primaryGreen,
+              elevation: 0,
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.space24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 80,
+                      color: AppTheme.errorRed,
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+                    Text(
+                      'Business not found',
+                      style: AppTheme.headlineMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    Text(
+                      'This business may have been removed or doesn\'t exist.',
+                      style: AppTheme.bodyLarge.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Go Back'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final businessName = data['businessName'] ?? 'Unknown';
+        final businessType = data['businessType'] ?? 'Restaurant';
+        final businessAddress = data['businessAddress'] ?? 'No address';
+        final businessDescription = data['businessDescription'] ?? 'No description';
+        final logoUrl = data['logoUrl'] as String?;
+        final coverImageUrl = data['coverImageUrl'] as String?;
+        final avgRating = (data['avgRating'] ?? 0.0).toDouble();
+        final reviewCount = data['reviewCount'] ?? 0;
+        final phoneNumber = data['phoneNumber'] as String?;
+        final facebookUrl = data['facebookUrl'] as String?;
+        final instagramUrl = data['instagramUrl'] as String?;
+        final websiteUrl = data['websiteUrl'] as String?;
 
         return Scaffold(
-          backgroundColor: AppTheme.backgroundColor,
           body: CustomScrollView(
             slivers: [
+              // ==================== HERO HEADER (ENHANCED) ====================
               SliverAppBar(
+                expandedHeight: 300,
                 pinned: true,
-                title: Text(
-                  businessName,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                backgroundColor: AppTheme.primaryGreen,
+                leading: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryGreen),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
                 actions: [
-                  StreamBuilder<bool>(
-                    stream: _bookmarkService.watchBookmarkStatus(widget.establishmentId),
-                    builder: (context, snapshot) {
-                      final isBookmarked = snapshot.data ?? false;
-                      
-                      return IconButton(
-                        icon: Icon(
-                          isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  // Bookmark Button
+                  Container(
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                        tooltip: isBookmarked ? 'Remove bookmark' : 'Add bookmark',
-                        onPressed: () => _handleBookmarkTap(businessName, businessType),
-                      );
-                    },
+                      ],
+                    ),
+                    child: StreamBuilder<bool>(
+                      stream: _bookmarkService.isBookmarkedStream(widget.establishmentId),
+                      builder: (context, snapshot) {
+                        final isBookmarked = snapshot.data ?? false;
+                        return IconButton(
+                          icon: Icon(
+                            isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                            color: isBookmarked ? AppTheme.accentYellow : AppTheme.primaryGreen,
+                          ),
+                          onPressed: () => _handleBookmarkTap(businessName, businessType),
+                        );
+                      },
+                    ),
                   ),
                 ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Cover Image
+                      if (coverImageUrl != null && coverImageUrl.isNotEmpty)
+                        Image.network(
+                          coverImageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: AppTheme.primaryGreen,
+                              child: const Icon(
+                                Icons.restaurant,
+                                size: 100,
+                                color: Colors.white54,
+                              ),
+                            );
+                          },
+                        )
+                      else
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppTheme.primaryGreen,
+                                AppTheme.secondaryGreen,
+                              ],
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.restaurant,
+                            size: 100,
+                            color: Colors.white54,
+                          ),
+                        ),
+                      
+                      // Gradient Overlay
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 150,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.8),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
 
-              SliverList(
-                delegate: SliverChildListDelegate([
-                  // Cover Image + Logo Header (NEW)
-                  _buildHeaderWithCoverAndLogo(data),
-                  const SizedBox(height: 60), // Space for overlapping logo
-                  
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Business Name (centered below logo)
-                        Align(
-                          alignment: Alignment.center,
-                          child: Text(
-                            businessName,
-                            style: AppTheme.headingMedium,
-                            textAlign: TextAlign.center,
+              // ==================== CONTENT ====================
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Business Info Card (Enhanced)
+                    Transform.translate(
+                      offset: const Offset(0, -40),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                            boxShadow: AppTheme.shadowCard,
                           ),
-                        ),
-
-                        const SizedBox(height: 20),
-                        _buildRatingAndReviewInfo(),
-                        const SizedBox(height: 24),
-
-                        Text(
-                          description,
-                          style: AppTheme.bodyLarge.copyWith(
-                            color: AppTheme.textSecondary,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Active Promotions Section
-                        _buildActivePromotionsSection(),
-
-                        // Information Section
-                        _buildSectionTitle('Information', Icons.info_outline),
-                        const SizedBox(height: 16),
-                        _buildDetailsCard(data),
-                        const SizedBox(height: 32),
-                        // Social Media Links Section
-                        _buildSocialMediaLinks(data),
-                        
-                        // Location & Directions Section
-                        _buildLocationAndDirectionsSection(data),
-                        
-                        const SizedBox(height: 32),
-                        // Photos Section
-                        StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: _galleryService.getBusinessGallery(widget.establishmentId),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const SizedBox.shrink();
-                            }
-
-                            final photos = snapshot.data ?? [];
-                            
-                            if (photos.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-
-                            return Column(
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppTheme.space20),
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Business Name & Logo Row
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Other Photos',
-                                      style: AppTheme.headingMedium,
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => PhotoGalleryViewerPage(
-                                              businessName: businessName,
-                                              photos: photos,
-                                              initialIndex: 0,
+                                    // Logo
+                                    if (logoUrl != null && logoUrl.isNotEmpty)
+                                      Container(
+                                        width: 80,
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                                          border: Border.all(
+                                            color: AppTheme.borderLight,
+                                            width: 2,
+                                          ),
+                                          boxShadow: AppTheme.shadowCardLight,
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
+                                          child: Image.network(
+                                            logoUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Container(
+                                                color: AppTheme.lightGreen,
+                                                child: const Icon(
+                                                  Icons.restaurant,
+                                                  size: 40,
+                                                  color: AppTheme.primaryGreen,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    
+                                    const SizedBox(width: AppTheme.space16),
+                                    
+                                    // Business Name & Type
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            businessName,
+                                            style: AppTheme.headlineMedium.copyWith(
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                        );
-                                      },
-                                      child: Text('View All (${photos.length})'),
+                                          const SizedBox(height: AppTheme.space4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AppTheme.space12,
+                                              vertical: AppTheme.space4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryGreen.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                                            ),
+                                            child: Text(
+                                              businessType,
+                                              style: AppTheme.labelMedium.copyWith(
+                                                color: AppTheme.primaryGreen,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
                                 
-                                SizedBox(
-                                  height: 120,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: photos.length > 10 ? 10 : photos.length,
-                                    itemBuilder: (context, index) {
-                                      final photo = photos[index];
-                                      final photoUrl = photo['photoUrl'] as String;
+                                const SizedBox(height: AppTheme.space16),
+                                const Divider(height: 1),
+                                const SizedBox(height: AppTheme.space16),
+                                
+                                // Rating & Reviews Row
+                                Row(
+                                  children: [
+                                    // Rating
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppTheme.space16,
+                                        vertical: AppTheme.space8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.accentYellow.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.star,
+                                            color: AppTheme.accentYellow,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: AppTheme.space8),
+                                          Text(
+                                            avgRating > 0 ? avgRating.toStringAsFixed(1) : 'No ratings',
+                                            style: AppTheme.titleMedium.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    
+                                    const SizedBox(width: AppTheme.space12),
+                                    
+                                    // Review Count
+                                    Text(
+                                      '($reviewCount ${reviewCount == 1 ? 'review' : 'reviews'})',
+                                      style: AppTheme.bodyMedium.copyWith(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Adjust spacing after floating card
+                    Transform.translate(
+                      offset: const Offset(0, -24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Active Promotions
+                          _buildActivePromotionsSection(),
+                          
+                          // Business Details Section
+                          const SizedBox(height: AppTheme.space24),
+                          _buildSectionTitle('About', Icons.info_outline),
+                          const SizedBox(height: AppTheme.space16),
+                          
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                            child: Container(
+                              padding: const EdgeInsets.all(AppTheme.space16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                                boxShadow: AppTheme.shadowCardLight,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Description
+                                  Text(
+                                    businessDescription,
+                                    style: AppTheme.bodyLarge.copyWith(
+                                      height: 1.6,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  
+                                  const SizedBox(height: AppTheme.space16),
+                                  const Divider(height: 1),
+                                  const SizedBox(height: AppTheme.space16),
+                                  
+                                  // Address
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(AppTheme.space8),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryGreen.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                        ),
+                                        child: const Icon(
+                                          Icons.location_on,
+                                          color: AppTheme.primaryGreen,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppTheme.space12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Address',
+                                              style: AppTheme.labelLarge.copyWith(
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: AppTheme.space4),
+                                            Text(
+                                              businessAddress,
+                                              style: AppTheme.bodyMedium.copyWith(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  
+                                  // Phone Number
+                                  if (phoneNumber != null && phoneNumber.isNotEmpty) ...[
+                                    const SizedBox(height: AppTheme.space16),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(AppTheme.space8),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryGreen.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                          ),
+                                          child: const Icon(
+                                            Icons.phone,
+                                            color: AppTheme.primaryGreen,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppTheme.space12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Phone',
+                                                style: AppTheme.labelLarge.copyWith(
+                                                  color: AppTheme.textSecondary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: AppTheme.space4),
+                                              Text(
+                                                phoneNumber,
+                                                style: AppTheme.bodyMedium.copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  
+                                  // Social Media Links
+                                  if ((facebookUrl != null && facebookUrl.isNotEmpty) ||
+                                      (instagramUrl != null && instagramUrl.isNotEmpty) ||
+                                      (websiteUrl != null && websiteUrl.isNotEmpty)) ...[
+                                    const SizedBox(height: AppTheme.space16),
+                                    const Divider(height: 1),
+                                    const SizedBox(height: AppTheme.space16),
+                                    
+                                    Text(
+                                      'Connect With Us',
+                                      style: AppTheme.labelLarge.copyWith(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppTheme.space12),
+                                    
+                                    Row(
+                                      children: [
+                                        if (facebookUrl != null && facebookUrl.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(right: AppTheme.space12),
+                                            child: Material(
+                                              color: const Color(0xFF1877F2),
+                                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                              child: InkWell(
+                                                onTap: () => _launchUrl(facebookUrl),
+                                                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(AppTheme.space12),
+                                                  child: const Icon(
+                                                    Icons.facebook,
+                                                    color: Colors.white,
+                                                    size: 24,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        
+                                        if (instagramUrl != null && instagramUrl.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(right: AppTheme.space12),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                                gradient: const LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    Color(0xFFF58529),
+                                                    Color(0xFFDD2A7B),
+                                                    Color(0xFF8134AF),
+                                                  ],
+                                                ),
+                                              ),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  onTap: () => _launchUrl(instagramUrl),
+                                                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(AppTheme.space12),
+                                                    child: const Icon(
+                                                      Icons.camera_alt,
+                                                      color: Colors.white,
+                                                      size: 24,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        
+                                        if (websiteUrl != null && websiteUrl.isNotEmpty)
+                                          Material(
+                                            color: AppTheme.primaryGreen,
+                                            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                            child: InkWell(
+                                              onTap: () => _launchUrl(websiteUrl),
+                                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(AppTheme.space12),
+                                                child: const Icon(
+                                                  Icons.language,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: AppTheme.space24),
+                          
+                          // Photo Gallery Section (Enhanced)
+                          StreamBuilder<QuerySnapshot>(
+                            stream: _firestore
+                                .collection(AppConfig.businessesCollection)
+                                .doc(widget.establishmentId)
+                                .collection(AppConfig.photosSubcollection)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const SizedBox.shrink();
+                              }
 
-                                      return GestureDetector(
-                                        onTap: () {
+                              final docs = snapshot.data?.docs ?? [];
+                              final List<Map<String, dynamic>> photos = docs
+                                  .map((doc) => doc.data() as Map<String, dynamic>)
+                                  .toList();
+
+                              if (photos.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Section Header
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(AppTheme.space8),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryGreen.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                          ),
+                                          child: const Icon(
+                                            Icons.photo_library,
+                                            color: AppTheme.primaryGreen,
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppTheme.space12),
+                                        Text(
+                                          'Photo Gallery',
+                                          style: AppTheme.headlineMedium.copyWith(
+                                            color: AppTheme.primaryGreen,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        TextButton(
+                                        onPressed: () {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) => PhotoGalleryViewerPage(
-                                                businessName: businessName,
                                                 photos: photos,
-                                                initialIndex: index,
+                                                initialIndex: 0,
+                                                businessName: businessName,
                                               ),
                                             ),
                                           );
                                         },
-                                        child: Container(
-                                          width: 120,
-                                          margin: const EdgeInsets.only(right: 12),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Stack(
-                                              fit: StackFit.expand,
-                                              children: [
-                                                Image.network(
-                                                  photoUrl,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error, stackTrace) {
-                                                    return Container(
-                                                      color: Colors.grey[300],
-                                                      child: const Icon(Icons.broken_image),
-                                                    );
-                                                  },
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppTheme.primaryGreen,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'View All',
+                                                style: AppTheme.labelLarge.copyWith(
+                                                  color: AppTheme.primaryGreen,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                                
-                                                if (index == 9 && photos.length > 10)
-                                                  Container(
-                                                    color: Colors.black.withOpacity(0.7),
-                                                    child: Center(
-                                                      child: Text(
-                                                        '+${photos.length - 10}\nmore',
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 16,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                        textAlign: TextAlign.center,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.arrow_forward_ios,
+                                                size: 14,
+                                                color: AppTheme.primaryGreen,
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      );
-                                    },
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 24),
-                                const Divider(),
-                                const SizedBox(height: 16),
-                              ],
-                            );
-                          },
-                        ),
+                                  
+                                  const SizedBox(height: AppTheme.space16),
+                                  
+                                  // Photo Grid (Enhanced)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                                    child: GridView.builder(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        crossAxisSpacing: AppTheme.space8,
+                                        mainAxisSpacing: AppTheme.space8,
+                                        childAspectRatio: 1,
+                                      ),
+                                      itemCount: photos.length > 9 ? 9 : photos.length,
+                                      itemBuilder: (context, index) {
+                                        final photo = photos[index];
+                                        final photoUrl = photo['photoUrl'] as String?;
 
-                        // Menu Items Section
-                        _buildSectionTitle('Menu Items', Icons.menu_book),
-                        const SizedBox(height: 16),
-                        _buildMenuItemsList(),
-                        const SizedBox(height: 32),
+                                        if (index == 8 && photos.length > 9) {
+                                          // Show "+X more" overlay on 9th item
+                                          return GestureDetector(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => PhotoGalleryViewerPage(
+                                                    photos: photos,
+                                                    initialIndex: 8,
+                                                    businessName: businessName,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                                boxShadow: AppTheme.shadowCardLight,
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                                child: Stack(
+                                                  fit: StackFit.expand,
+                                                  children: [
+                                                    if (photoUrl != null && photoUrl.isNotEmpty)
+                                                      Image.network(
+                                                        photoUrl,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (context, error, stackTrace) {
+                                                          return Container(
+                                                            color: AppTheme.lightGreen,
+                                                            child: const Icon(
+                                                              Icons.image_not_supported,
+                                                              color: AppTheme.textHint,
+                                                            ),
+                                                          );
+                                                        },
+                                                      )
+                                                    else
+                                                      Container(
+                                                        color: AppTheme.lightGreen,
+                                                        child: const Icon(
+                                                          Icons.image,
+                                                          color: AppTheme.textHint,
+                                                        ),
+                                                      ),
+                                                    
+                                                    // Overlay with "+X more"
+                                                    Container(
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.black.withOpacity(0.7),
+                                                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          '+${photos.length - 9}\nmore',
+                                                          style: AppTheme.titleMedium.copyWith(
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                          textAlign: TextAlign.center,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
 
-                        // Reviews Section
-                        _buildSectionTitle(
-                          'Customer Reviews',
-                          Icons.rate_review,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildReviewsList(businessName),
-                        const SizedBox(height: 100),
-                      ],
+                                        // Regular photo item
+                                        return GestureDetector(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => PhotoGalleryViewerPage(
+                                                  photos: photos,
+                                                  initialIndex: index,
+                                                  businessName: businessName,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                              boxShadow: AppTheme.shadowCardLight,
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                              child: photoUrl != null && photoUrl.isNotEmpty
+                                                  ? Image.network(
+                                                      photoUrl,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        return Container(
+                                                          color: AppTheme.lightGreen,
+                                                          child: const Icon(
+                                                            Icons.image_not_supported,
+                                                            color: AppTheme.textHint,
+                                                          ),
+                                                        );
+                                                      },
+                                                    )
+                                                  : Container(
+                                                      color: AppTheme.lightGreen,
+                                                      child: const Icon(
+                                                        Icons.image,
+                                                        color: AppTheme.textHint,
+                                                      ),
+                                                    ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  
+                                  const SizedBox(height: AppTheme.space24),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                                    child: Divider(height: 1),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+
+                          // Location & Directions Section
+                          _buildLocationAndDirectionsSection(data),
+
+                          // Menu Items Section
+                          const SizedBox(height: AppTheme.space24),
+                          _buildSectionTitle('Menu Items', Icons.menu_book),
+                          const SizedBox(height: AppTheme.space16),
+                          _buildMenuItemsList(),
+                          const SizedBox(height: AppTheme.space32),
+
+                          // Reviews Section
+                          _buildSectionTitle('Customer Reviews', Icons.rate_review),
+                          const SizedBox(height: AppTheme.space16),
+                          _buildReviewsList(businessName),
+                          const SizedBox(height: 100),
+                        ],
+                      ),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _navigateToReviewForm(businessName),
-            label: const Text(
-              'Write a Review',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+          
+          // ==================== FLOATING ACTION BUTTON (ENHANCED) ====================
+          floatingActionButton: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryGreen.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FloatingActionButton.extended(
+              onPressed: () => _navigateToReviewForm(businessName),
+              label: Text(
+                'Write a Review',
+                style: AppTheme.titleMedium.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              icon: const Icon(Icons.edit_note, size: 28),
+              backgroundColor: AppTheme.primaryGreen,
+              elevation: 0, // Remove default elevation (we're using custom shadow)
             ),
-            icon: const Icon(Icons.edit_note, size: 28),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30.0),
-            ),
-            elevation: 10,
           ),
           floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         );
@@ -1624,7 +2190,7 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
     );
   }
 
-  // ==================== BUILD LOCATION & DIRECTIONS SECTION ====================
+  // ==================== BUILD LOCATION & DIRECTIONS SECTION (ENHANCED) ====================
   Widget _buildLocationAndDirectionsSection(Map<String, dynamic> data) {
     final double? businessLat = data['latitude'] as double?;
     final double? businessLng = data['longitude'] as double?;
@@ -1638,145 +2204,180 @@ Widget _buildSocialMediaLinks(Map<String, dynamic> data) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
+        const SizedBox(height: AppTheme.space24),
         
         // Section Header
-        Row(
-          children: [
-            Icon(
-              Icons.location_on,
-              color: AppTheme.primaryGreen,
-              size: 28,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Location & Directions',
-              style: AppTheme.headingMedium.copyWith(
-                color: AppTheme.primaryGreen,
-              ),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Mini Map Preview Card
-        Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+          child: Row(
             children: [
-              // Mini Map
-              Stack(
-                children: [
-                  SizedBox(
-                    height: 200,
-                    width: double.infinity,
-                    child: GoogleMap(
-                      onMapCreated: (controller) {
-                        _miniMapController = controller;
-                      },
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(businessLat, businessLng),
-                        zoom: 15,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('business'),
-                          position: LatLng(businessLat, businessLng),
-                          infoWindow: InfoWindow(title: businessName),
-                        ),
-                      },
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      scrollGesturesEnabled: false, // Disable scroll on mini-map
-                      zoomGesturesEnabled: false,
-                      tiltGesturesEnabled: false,
-                      rotateGesturesEnabled: false,
-                    ),
-                  ),
-                  
-                  // Fullscreen Button (Top Right)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      elevation: 4,
-                      child: InkWell(
-                        onTap: () => _navigateToRouteMap(
-                          businessLat: businessLat,
-                          businessLng: businessLng,
-                          businessName: businessName,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.fullscreen,
-                            color: AppTheme.primaryGreen,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              
-              // Get Directions Button
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                child: ElevatedButton.icon(
-                  onPressed: _isLoadingLocation
-                      ? null
-                      : () => _navigateToRouteMap(
-                            businessLat: businessLat,
-                            businessLng: businessLng,
-                            businessName: businessName,
-                          ),
-                  icon: _isLoadingLocation
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.directions, size: 24),
-                  label: Text(
-                    _isLoadingLocation ? 'Getting Location...' : 'Get Directions',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
+                padding: const EdgeInsets.all(AppTheme.space8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: const Icon(
+                  Icons.location_on,
+                  color: AppTheme.primaryGreen,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              Text(
+                'Location & Directions',
+                style: AppTheme.headlineMedium.copyWith(
+                  color: AppTheme.primaryGreen,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
         ),
         
-        const SizedBox(height: 24),
-        const Divider(),
+        const SizedBox(height: AppTheme.space16),
+        
+        // Mini Map Preview Card (Enhanced)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              boxShadow: AppTheme.shadowCard,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              child: Column(
+                children: [
+                  // Mini Map
+                  Stack(
+                    children: [
+                      SizedBox(
+                        height: 200,
+                        width: double.infinity,
+                        child: GoogleMap(
+                          onMapCreated: (controller) {
+                            _miniMapController = controller;
+                          },
+                          initialCameraPosition: CameraPosition(
+                            target: LatLng(businessLat, businessLng),
+                            zoom: 15,
+                          ),
+                          markers: {
+                            Marker(
+                              markerId: const MarkerId('business'),
+                              position: LatLng(businessLat, businessLng),
+                              infoWindow: InfoWindow(title: businessName),
+                            ),
+                          },
+                          myLocationEnabled: true,
+                          myLocationButtonEnabled: false,
+                          zoomControlsEnabled: false,
+                          mapToolbarEnabled: false,
+                          scrollGesturesEnabled: false,
+                          zoomGesturesEnabled: false,
+                          tiltGesturesEnabled: false,
+                          rotateGesturesEnabled: false,
+                        ),
+                      ),
+                      
+                      // Fullscreen Button (Enhanced)
+                      Positioned(
+                        top: 12,
+                        right: 12,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _navigateToRouteMap(
+                                businessLat: businessLat,
+                                businessLng: businessLng,
+                                businessName: businessName,
+                              ),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppTheme.space8),
+                                child: const Icon(
+                                  Icons.fullscreen,
+                                  color: AppTheme.primaryGreen,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  // Get Directions Button (Enhanced)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppTheme.space16),
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoadingLocation
+                          ? null
+                          : () => _navigateToRouteMap(
+                                businessLat: businessLat,
+                                businessLng: businessLng,
+                                businessName: businessName,
+                              ),
+                      icon: _isLoadingLocation
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.directions, size: 24),
+                      label: Text(
+                        _isLoadingLocation ? 'Getting Location...' : 'Get Directions',
+                        style: AppTheme.titleMedium.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: AppTheme.space24),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppTheme.space16),
+          child: Divider(height: 1),
+        ),
       ],
     );
   }
 }
+
+// ====================================================================
+// END OF ENHANCED ESTABLISHMENT DETAILS PAGE
+// ====================================================================

@@ -1,3 +1,19 @@
+// ====================================================================
+// ENHANCED BUSINESS PROFILE EDITOR PAGE
+// UI Enhancement Phase - Modern, Clean Design with Poppins Font
+// 
+// ENHANCEMENTS APPLIED:
+// - Modern card-based layout with enhanced shadows
+// - Improved section headers with icons and backgrounds
+// - Enhanced image upload UI with better previews
+// - Modern form fields with better visual hierarchy
+// - Enhanced location card with better status indicators
+// - Improved button designs with gradients
+// - Better spacing and typography using Poppins
+// 
+// FUNCTIONALITY: 100% PRESERVED - NO CHANGES TO BUSINESS LOGIC
+// ====================================================================
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,8 +22,8 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
-import '../config/app_theme.dart';
+import 'config/app_config.dart';
+import 'config/app_theme.dart';
 import 'map_location_picker_page.dart';
 
 class BusinessProfileEditorPage extends StatefulWidget {
@@ -18,6 +34,8 @@ class BusinessProfileEditorPage extends StatefulWidget {
 }
 
 class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
+  // ==================== STATE VARIABLES ====================
+  // NO CHANGES - All state management preserved
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -31,8 +49,8 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
   String? _selectedBusinessType;
   String? _currentLogoUrl;
   File? _newLogoFile;
-  String? _currentCoverImageUrl; // ← NEW
-  File? _newCoverImageFile; // ← NEW
+  String? _currentCoverImageUrl;
+  File? _newCoverImageFile;
   double? _latitude;
   double? _longitude;
   bool _hasLocation = false;
@@ -41,9 +59,8 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
   bool _hasUnsavedChanges = false;
   bool _isCapturingLocation = false;
 
-  // ==================== MAP LOCATION STATE VARIABLES ====================
-  Map<String, dynamic>? _selectedMapLocation; // Stores selected location
-  bool _locationSelectedFromMap = false; // Tracks if location was from map
+  Map<String, dynamic>? _selectedMapLocation;
+  bool _locationSelectedFromMap = false;
 
   final List<String> _businessTypes = AppConfig.businessTypes;
 
@@ -65,6 +82,8 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     _websiteController.addListener(() => _hasUnsavedChanges = true);
   }
 
+  // ==================== DATA LOADING ====================
+  // NO CHANGES - Business logic preserved
   Future<void> _loadBusinessData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -88,7 +107,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
           _websiteController.text = data['websiteUrl'] ?? '';
           _selectedBusinessType = data['businessType'];
           _currentLogoUrl = data['logoUrl'];
-          _currentCoverImageUrl = data['coverImageUrl']; // ← NEW: Load cover image
+          _currentCoverImageUrl = data['coverImageUrl'];
           _latitude = data['latitude'];
           _longitude = data['longitude'];
           _hasLocation = data['hasLocation'] ?? false;
@@ -103,12 +122,27 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load business data')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                const Expanded(child: Text('Failed to load business data')),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
         );
       }
     }
   }
 
+  // ==================== IMAGE PICKERS ====================
+  // NO CHANGES - Logic preserved
   Future<void> _pickLogo() async {
     try {
       final picker = ImagePicker();
@@ -126,7 +160,20 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
         if (!AppConfig.isValidImageSize(fileSize)) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Image must be less than 5MB')),
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Image must be less than 5MB')),
+                  ],
+                ),
+                backgroundColor: AppTheme.warningOrange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
             );
           }
           return;
@@ -143,19 +190,31 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to pick image')),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(child: Text('Failed to pick image')),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
         );
       }
     }
   }
 
-  /// Pick cover image from gallery
   Future<void> _pickCoverImage() async {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1920, // Wider for banner
+        maxWidth: 1920,
         maxHeight: 1080,
         imageQuality: 85,
       );
@@ -167,7 +226,20 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
         if (!AppConfig.isValidImageSize(fileSize)) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Image must be less than 5MB')),
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Image must be less than 5MB')),
+                  ],
+                ),
+                backgroundColor: AppTheme.warningOrange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
             );
           }
           return;
@@ -184,151 +256,171 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to pick image')),
-        );
-      }
-    }
-  }
-
-  Future<String?> _uploadLogoToCloudinary(File imageFile) async {
-  setState(() {
-    _isSaving = true;
-  });
-
-  try {
-    // Validate file size
-    final fileSize = await imageFile.length();
-    
-    if (AppConfig.enableDebugMode) {
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('📤 CLOUDINARY UPLOAD DEBUG');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('File path: ${imageFile.path}');
-      debugPrint('File size: $fileSize bytes (${(fileSize / 1024).toStringAsFixed(2)} KB)');
-      debugPrint('Max allowed: ${AppConfig.maxImageSizeBytes} bytes');
-      debugPrint('Size valid: ${AppConfig.isValidImageSize(fileSize)}');
-    }
-    
-    if (!AppConfig.isValidImageSize(fileSize)) {
-      throw Exception(
-        'Image too large. Max size: ${AppConfig.maxImageSizeBytes ~/ (1024 * 1024)}MB'
-      );
-    }
-
-    // Prepare request
-    final url = Uri.parse(AppConfig.cloudinaryApiUrl);
-    
-    if (AppConfig.enableDebugMode) {
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('🔧 REQUEST CONFIGURATION');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('API URL: ${AppConfig.cloudinaryApiUrl}');
-      debugPrint('Cloud Name: ${AppConfig.cloudinaryCloudName}');
-      debugPrint('Upload Preset: ${AppConfig.cloudinaryUploadPreset}');
-      debugPrint('Folder: ${AppConfig.cloudinaryEstablishmentLogoFolder}');
-    }
-    
-    var request = http.MultipartRequest('POST', url);
-
-    // Add required fields
-    request.fields['upload_preset'] = AppConfig.cloudinaryUploadPreset;
-    request.fields['folder'] = AppConfig.cloudinaryEstablishmentLogoFolder;
-
-    if (AppConfig.enableDebugMode) {
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('📦 REQUEST FIELDS');
-      debugPrint('═══════════════════════════════════════');
-      request.fields.forEach((key, value) {
-        debugPrint('$key: $value');
-      });
-    }
-
-    // Add file
-    final multipartFile = await http.MultipartFile.fromPath('file', imageFile.path);
-    request.files.add(multipartFile);
-    
-    if (AppConfig.enableDebugMode) {
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('🔎 FILE INFO');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('Field name: file');
-      debugPrint('Filename: ${multipartFile.filename}');
-      debugPrint('Content type: ${multipartFile.contentType}');
-      debugPrint('Length: ${multipartFile.length} bytes');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('🚀 SENDING REQUEST...');
-      debugPrint('═══════════════════════════════════════');
-    }
-
-    // Send request
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (AppConfig.enableDebugMode) {
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('📥 RESPONSE RECEIVED');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('Status Code: ${response.statusCode}');
-      debugPrint('Status: ${response.statusCode == 200 ? "✓ SUCCESS" : "✗ FAILED"}');
-      debugPrint('Response Body:');
-      debugPrint(response.body);
-      debugPrint('═══════════════════════════════════════');
-    }
-
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
-      final imageUrl = responseData['secure_url'] as String;
-      
-      setState(() {
-        _isSaving = false;
-      });
-
-      if (AppConfig.enableDebugMode) {
-        debugPrint('✓ Logo URL: $imageUrl');
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Logo uploaded successfully!'),
-            backgroundColor: AppTheme.successGreen,
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(child: Text('Failed to pick image')),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
-      
-      return imageUrl;
-    } else {
-      throw Exception('Upload failed with status ${response.statusCode}: ${response.body}');
     }
-  } catch (e, stackTrace) {
-    if (AppConfig.enableDebugMode) {
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('❌ ERROR OCCURRED');
-      debugPrint('═══════════════════════════════════════');
-      debugPrint('Error: $e');
-      debugPrint('Stack trace: $stackTrace');
-      debugPrint('═══════════════════════════════════════');
-    }
-
-    setState(() {
-      _isSaving = false;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to upload logo: $e'),
-          backgroundColor: AppTheme.errorRed,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    }
-
-    return null;
   }
-}
 
-  /// Upload cover image to Cloudinary
+  // ==================== CLOUDINARY UPLOAD ====================
+  // NO CHANGES - Complete logic preserved (MultipartRequest method)
+  Future<String?> _uploadLogoToCloudinary(File imageFile) async {
+    setState(() => _isSaving = true);
+
+    try {
+      final fileSize = await imageFile.length();
+      
+      if (AppConfig.enableDebugMode) {
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('📤 CLOUDINARY UPLOAD DEBUG');
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('File path: ${imageFile.path}');
+        debugPrint('File size: $fileSize bytes (${(fileSize / 1024).toStringAsFixed(2)} KB)');
+        debugPrint('Max allowed: ${AppConfig.maxImageSizeBytes} bytes');
+        debugPrint('Size valid: ${AppConfig.isValidImageSize(fileSize)}');
+      }
+      
+      if (!AppConfig.isValidImageSize(fileSize)) {
+        throw Exception('Image too large. Max size: ${AppConfig.maxImageSizeBytes ~/ (1024 * 1024)}MB');
+      }
+
+      final url = Uri.parse(AppConfig.cloudinaryApiUrl);
+      
+      if (AppConfig.enableDebugMode) {
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('🔧 REQUEST CONFIGURATION');
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('API URL: ${AppConfig.cloudinaryApiUrl}');
+        debugPrint('Cloud Name: ${AppConfig.cloudinaryCloudName}');
+        debugPrint('Upload Preset: ${AppConfig.cloudinaryUploadPreset}');
+        debugPrint('Folder: ${AppConfig.cloudinaryEstablishmentLogoFolder}');
+      }
+      
+      var request = http.MultipartRequest('POST', url);
+      request.fields['upload_preset'] = AppConfig.cloudinaryUploadPreset;
+      request.fields['folder'] = AppConfig.cloudinaryEstablishmentLogoFolder;
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('📦 REQUEST FIELDS');
+        debugPrint('═══════════════════════════════════════════');
+        request.fields.forEach((key, value) {
+          debugPrint('$key: $value');
+        });
+      }
+
+      final multipartFile = await http.MultipartFile.fromPath('file', imageFile.path);
+      request.files.add(multipartFile);
+      
+      if (AppConfig.enableDebugMode) {
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('🔎 FILE INFO');
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('Field name: file');
+        debugPrint('Filename: ${multipartFile.filename}');
+        debugPrint('Content type: ${multipartFile.contentType}');
+        debugPrint('Length: ${multipartFile.length} bytes');
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('🚀 SENDING REQUEST...');
+        debugPrint('═══════════════════════════════════════════');
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('📥 RESPONSE RECEIVED');
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('Status Code: ${response.statusCode}');
+        debugPrint('Status: ${response.statusCode == 200 ? "✓ SUCCESS" : "✗ FAILED"}');
+        debugPrint('Response Body:');
+        debugPrint(response.body);
+        debugPrint('═══════════════════════════════════════════');
+      }
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        final imageUrl = responseData['secure_url'] as String;
+        
+        setState(() => _isSaving = false);
+
+        if (AppConfig.enableDebugMode) {
+          debugPrint('✓ Logo URL: $imageUrl');
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  SizedBox(width: AppTheme.space8),
+                  const Text('Logo uploaded successfully!'),
+                ],
+              ),
+              backgroundColor: AppTheme.successGreen,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+            ),
+          );
+        }
+        
+        return imageUrl;
+      } else {
+        throw Exception('Upload failed with status ${response.statusCode}: ${response.body}');
+      }
+    } catch (e, stackTrace) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('❌ ERROR OCCURRED');
+        debugPrint('═══════════════════════════════════════════');
+        debugPrint('Error: $e');
+        debugPrint('Stack trace: $stackTrace');
+        debugPrint('═══════════════════════════════════════════');
+      }
+
+      setState(() => _isSaving = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                Expanded(child: Text('Failed to upload logo: $e')),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
+        );
+      }
+
+      return null;
+    }
+  }
+
   Future<String?> _uploadCoverImageToCloudinary(File imageFile) async {
     try {
       final fileSize = await imageFile.length();
@@ -341,7 +433,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       var request = http.MultipartRequest('POST', url);
 
       request.fields['upload_preset'] = AppConfig.cloudinaryUploadPreset;
-      request.fields['folder'] = AppConfig.cloudinaryCoverImageFolder; // Use cover folder
+      request.fields['folder'] = AppConfig.cloudinaryCoverImageFolder;
 
       final multipartFile = await http.MultipartFile.fromPath('file', imageFile.path);
       request.files.add(multipartFile);
@@ -369,6 +461,8 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     }
   }
 
+  // ==================== LOCATION SERVICES ====================
+  // NO CHANGES - Complete logic preserved
   Future<void> _updateLocation() async {
     try {
       setState(() => _isCapturingLocation = true);
@@ -404,9 +498,19 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location updated successfully'),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                const Text('Location updated successfully'),
+              ],
+            ),
             backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
@@ -414,13 +518,25 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       setState(() => _isCapturingLocation = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update location: $e')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                Expanded(child: Text('Failed to update location: $e')),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
         );
       }
     }
   }
 
-  /// Open map to manually select location
   Future<void> _chooseLocationOnMap() async {
     try {
       final result = await Navigator.push(
@@ -448,13 +564,24 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
           }
         });
 
-        // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Location updated: ${result['address'] ?? "Mambusao, Capiz"}'),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  SizedBox(width: AppTheme.space8),
+                  Expanded(
+                    child: Text('Location updated: ${result['address'] ?? "Mambusao, Capiz"}'),
+                  ),
+                ],
+              ),
               backgroundColor: AppTheme.successGreen,
               duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
             ),
           );
         }
@@ -467,34 +594,62 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error opening map: $e'),
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                Expanded(child: Text('Error opening map: $e')),
+              ],
+            ),
             backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
     }
   }
 
+  // ==================== SAVE CHANGES ====================
+  // NO CHANGES - Complete logic preserved (email excluded from update)
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Show confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Save Changes'),
-        content: const Text('Are you sure you want to save these changes?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        title: Text('Save Changes', style: AppTheme.headlineMedium),
+        content: Text(
+          'Are you sure you want to save these changes?',
+          style: AppTheme.bodyLarge,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: AppTheme.labelLarge.copyWith(color: AppTheme.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(
+                horizontal: AppTheme.space24,
+                vertical: AppTheme.space12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
             ),
-            child: const Text('Save'),
+            child: Text('Save', style: AppTheme.labelLarge.copyWith(color: Colors.white)),
           ),
         ],
       ),
@@ -510,7 +665,6 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
 
       String logoUrl = _currentLogoUrl ?? '';
 
-      // Upload new logo if selected
       if (_newLogoFile != null) {
         final uploadedUrl = await _uploadLogoToCloudinary(_newLogoFile!);
         if (uploadedUrl != null) {
@@ -520,7 +674,6 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
         }
       }
 
-      // Upload cover image if selected
       String? coverImageUrl = _currentCoverImageUrl;
       if (_newCoverImageFile != null) {
         final uploadedCoverUrl = await _uploadCoverImageToCloudinary(_newCoverImageFile!);
@@ -529,7 +682,6 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
         }
       }
 
-      // Use map-selected location if available, otherwise use current values
       double? saveLatitude = _latitude;
       double? saveLongitude = _longitude;
       bool saveHasLocation = _hasLocation;
@@ -545,7 +697,6 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
         }
       }
 
-      // Prepare update data (REMOVED email field)
       final updateData = {
         'businessName': _nameController.text.trim(),
         'businessAddress': _addressController.text.trim(),
@@ -587,9 +738,19 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                const Text('Profile updated successfully!'),
+              ],
+            ),
             backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
         Navigator.pop(context, true);
@@ -601,31 +762,63 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save changes: $e')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: AppTheme.space8),
+                Expanded(child: Text('Failed to save changes: $e')),
+              ],
+            ),
+            backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+          ),
         );
       }
     }
   }
 
+  // ==================== UNSAVED CHANGES WARNING ====================
+  // NO CHANGES
   Future<bool> _onWillPop() async {
     if (!_hasUnsavedChanges) return true;
 
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unsaved Changes'),
-        content: const Text('You have unsaved changes. Do you want to discard them?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        title: Text('Unsaved Changes', style: AppTheme.headlineMedium),
+        content: Text(
+          'You have unsaved changes. Do you want to discard them?',
+          style: AppTheme.bodyLarge,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: AppTheme.labelLarge.copyWith(color: AppTheme.textSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(
+                horizontal: AppTheme.space24,
+                vertical: AppTheme.space12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
             ),
-            child: const Text('Discard'),
+            child: Text('Discard', style: AppTheme.labelLarge.copyWith(color: Colors.white)),
           ),
         ],
       ),
@@ -634,6 +827,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     return result ?? false;
   }
 
+  // ==================== BUILD METHOD (ENHANCED UI) ====================
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -647,30 +841,55 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppTheme.surfaceColor,
+        backgroundColor: AppTheme.backgroundLight,
         appBar: AppBar(
-          title: const Text('Edit Business Profile'),
+          title: Text(
+            'Edit Business Profile',
+            style: AppTheme.titleLarge.copyWith(color: Colors.white),
+          ),
           backgroundColor: AppTheme.primaryGreen,
           foregroundColor: Colors.white,
           elevation: 0,
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        color: AppTheme.primaryGreen,
+                        strokeWidth: 4,
+                      ),
+                    ),
+                    SizedBox(height: AppTheme.space24),
+                    Text(
+                      'Loading profile...',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              )
             : Form(
                 key: _formKey,
                 child: ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(AppTheme.space16),
                   children: [
-                    // Logo Section
+                    // Logo Section (Enhanced)
                     _buildLogoSection(),
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppTheme.space24),
 
-                    // Cover Image Section (NEW)
+                    // Cover Image Section (Enhanced)
                     _buildCoverImageSection(),
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppTheme.space24),
 
-                    // Basic Information Section
+                    // Basic Information Section (Enhanced)
                     _buildSectionHeader('Basic Information', Icons.business),
+                    SizedBox(height: AppTheme.space12),
                     _buildTextField(
                       controller: _nameController,
                       label: 'Business Name',
@@ -679,7 +898,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                           ? 'Business name is required' 
                           : null,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                     _buildTextField(
                       controller: _addressController,
                       label: 'Business Address',
@@ -688,9 +907,9 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                           ? 'Address is required' 
                           : null,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                     _buildBusinessTypeDropdown(),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                     _buildTextField(
                       controller: _descriptionController,
                       label: 'Business Description',
@@ -698,19 +917,20 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                       maxLines: 4,
                       maxLength: 500,
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppTheme.space24),
 
-                    // Contact Information Section
+                    // Contact Information Section (Enhanced)
                     _buildSectionHeader('Contact Information', Icons.contact_phone),
+                    SizedBox(height: AppTheme.space12),
                     _buildTextField(
                       controller: _emailController,
                       label: 'Email',
                       icon: Icons.email,
                       keyboardType: TextInputType.emailAddress,
-                      enabled: false, // ← Email is read-only
+                      enabled: false,
                       validator: null,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                     _buildTextField(
                       controller: _phoneController,
                       label: 'Phone Number',
@@ -720,40 +940,42 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                           ? 'Phone number is required' 
                           : null,
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppTheme.space24),
 
-                    // Location Section
+                    // Location Section (Enhanced)
                     _buildSectionHeader('Location', Icons.my_location),
+                    SizedBox(height: AppTheme.space12),
                     _buildLocationCard(),
-                    const SizedBox(height: 24),
+                    SizedBox(height: AppTheme.space24),
 
-                    // Social Media Section
+                    // Social Media Section (Enhanced)
                     _buildSectionHeader('Social Media (Optional)', Icons.share),
+                    SizedBox(height: AppTheme.space12),
                     _buildTextField(
                       controller: _facebookController,
                       label: 'Facebook URL',
                       icon: Icons.facebook,
                       keyboardType: TextInputType.url,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                     _buildTextField(
                       controller: _instagramController,
                       label: 'Instagram URL',
                       icon: Icons.camera_alt,
                       keyboardType: TextInputType.url,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                     _buildTextField(
                       controller: _websiteController,
                       label: 'Website URL',
                       icon: Icons.language,
                       keyboardType: TextInputType.url,
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: AppTheme.space32),
 
-                    // Save Button
+                    // Save Button (Enhanced)
                     _buildSaveButton(),
-                    const SizedBox(height: 16),
+                    SizedBox(height: AppTheme.space16),
                   ],
                 ),
               ),
@@ -761,55 +983,120 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     );
   }
 
+  // ==================== UI COMPONENTS (ENHANCED) ====================
+
+  /// Enhanced logo section with modern card design
   Widget _buildLogoSection() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(AppTheme.space20),
         child: Column(
           children: [
-            const Text(
-              'Business Logo',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(AppTheme.space8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: const Icon(
+                    Icons.account_circle,
+                    color: AppTheme.primaryGreen,
+                    size: 24,
+                  ),
+                ),
+                SizedBox(width: AppTheme.space12),
+                Text(
+                  'Business Logo',
+                  style: AppTheme.titleLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: AppTheme.space16),
             GestureDetector(
               onTap: _pickLogo,
               child: Container(
-                width: 120,
-                height: 120,
+                width: 140,
+                height: 140,
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.primaryGreen, width: 2),
+                  color: AppTheme.backgroundLight,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  border: Border.all(
+                    color: AppTheme.primaryGreen,
+                    width: 2,
+                  ),
+                  boxShadow: AppTheme.shadowCardLight,
                 ),
                 child: _newLogoFile != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(_newLogoFile!, fit: BoxFit.cover),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
+                        child: Image.file(
+                          _newLogoFile!,
+                          fit: BoxFit.cover,
+                        ),
                       )
                     : _currentLogoUrl != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(_currentLogoUrl!, fit: BoxFit.cover),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
+                            child: Image.network(
+                              _currentLogoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.broken_image,
+                                  size: 56,
+                                  color: AppTheme.textHint,
+                                );
+                              },
+                            ),
                           )
-                        : const Icon(
-                            Icons.add_photo_alternate,
-                            size: 48,
-                            color: AppTheme.primaryGreen,
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.add_photo_alternate,
+                                size: 56,
+                                color: AppTheme.primaryGreen,
+                              ),
+                              SizedBox(height: AppTheme.space8),
+                              Text(
+                                'Tap to add logo',
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: AppTheme.primaryGreen,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
               ),
             ),
-            const SizedBox(height: 8),
-            TextButton.icon(
+            SizedBox(height: AppTheme.space16),
+            OutlinedButton.icon(
               onPressed: _pickLogo,
-              icon: const Icon(Icons.edit),
+              icon: Icon(
+                _currentLogoUrl == null ? Icons.add_photo_alternate : Icons.edit,
+                size: 20,
+              ),
               label: Text(_currentLogoUrl == null ? 'Add Logo' : 'Change Logo'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryGreen,
+                side: const BorderSide(color: AppTheme.primaryGreen, width: 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppTheme.space24,
+                  vertical: AppTheme.space12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+              ),
             ),
           ],
         ),
@@ -817,53 +1104,76 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     );
   }
 
+  /// Enhanced cover image section
   Widget _buildCoverImageSection() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(AppTheme.space20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.image, color: AppTheme.primaryGreen, size: 24),
-                const SizedBox(width: 8),
-                const Text(
-                  'Cover Image',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                Container(
+                  padding: EdgeInsets.all(AppTheme.space8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: const Icon(
+                    Icons.image,
+                    color: AppTheme.primaryGreen,
+                    size: 24,
+                  ),
+                ),
+                SizedBox(width: AppTheme.space12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cover Image',
+                        style: AppTheme.titleLarge.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: AppTheme.space4),
+                      Text(
+                        'Add a banner to showcase your business',
+                        style: AppTheme.bodySmall.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Add a banner image to showcase your business',
-              style: AppTheme.bodySmall.copyWith(
-                color: AppTheme.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-            const SizedBox(height: 16),
+            SizedBox(height: AppTheme.space16),
             
             // Cover Image Preview
             GestureDetector(
               onTap: _pickCoverImage,
               child: Container(
                 width: double.infinity,
-                height: 180,
+                height: 200,
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.primaryGreen, width: 2),
+                  color: AppTheme.backgroundLight,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  border: Border.all(
+                    color: AppTheme.primaryGreen,
+                    width: 2,
+                  ),
+                  boxShadow: AppTheme.shadowCardLight,
                 ),
                 child: _newCoverImageFile != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
                         child: Image.file(
                           _newCoverImageFile!,
                           fit: BoxFit.cover,
@@ -872,7 +1182,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                       )
                     : _currentCoverImageUrl != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
                             child: Image.network(
                               _currentCoverImageUrl!,
                               fit: BoxFit.cover,
@@ -881,15 +1191,17 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.broken_image,
-                                      size: 48,
-                                      color: Colors.grey[400],
+                                      size: 56,
+                                      color: AppTheme.textHint,
                                     ),
-                                    const SizedBox(height: 8),
+                                    SizedBox(height: AppTheme.space8),
                                     Text(
                                       'Failed to load image',
-                                      style: TextStyle(color: Colors.grey[600]),
+                                      style: AppTheme.bodySmall.copyWith(
+                                        color: AppTheme.textHint,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -900,17 +1212,24 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.add_photo_alternate,
-                                  size: 48,
+                                  size: 56,
                                   color: AppTheme.primaryGreen,
                                 ),
-                                const SizedBox(height: 8),
+                                SizedBox(height: AppTheme.space12),
                                 Text(
                                   'Tap to add cover image',
-                                  style: TextStyle(
+                                  style: AppTheme.bodyMedium.copyWith(
                                     color: AppTheme.primaryGreen,
                                     fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(height: AppTheme.space4),
+                                Text(
+                                  'Recommended: 1920x1080px',
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: AppTheme.textHint,
                                   ),
                                 ),
                               ],
@@ -918,7 +1237,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                           ),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: AppTheme.space16),
             
             // Action Buttons
             Row(
@@ -933,16 +1252,23 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                           _hasUnsavedChanges = true;
                         });
                       },
-                      icon: const Icon(Icons.delete_outline),
+                      icon: const Icon(Icons.delete_outline, size: 20),
                       label: const Text('Remove'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.errorRed,
-                        side: BorderSide(color: AppTheme.errorRed),
+                        side: const BorderSide(color: AppTheme.errorRed, width: 2),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppTheme.space16,
+                          vertical: AppTheme.space12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
                       ),
                     ),
                   ),
                 if (_currentCoverImageUrl != null || _newCoverImageFile != null)
-                  const SizedBox(width: 12),
+                  SizedBox(width: AppTheme.space12),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _pickCoverImage,
@@ -950,6 +1276,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                       _currentCoverImageUrl != null || _newCoverImageFile != null
                           ? Icons.edit
                           : Icons.add_photo_alternate,
+                      size: 20,
                     ),
                     label: Text(
                       _currentCoverImageUrl != null || _newCoverImageFile != null
@@ -959,6 +1286,13 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryGreen,
                       foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppTheme.space16,
+                        vertical: AppTheme.space12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
                     ),
                   ),
                 ),
@@ -970,19 +1304,30 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     );
   }
 
+  /// Enhanced section header
   Widget _buildSectionHeader(String title, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    return Container(
+      padding: EdgeInsets.all(AppTheme.space16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryGreen.withOpacity(0.1),
+            AppTheme.secondaryGreen.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
       child: Row(
         children: [
           Icon(icon, color: AppTheme.primaryGreen, size: 24),
-          const SizedBox(width: 8),
+          SizedBox(width: AppTheme.space12),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: AppTheme.titleLarge.copyWith(
               color: AppTheme.primaryGreen,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -990,6 +1335,7 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     );
   }
 
+  /// Enhanced text field
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -998,87 +1344,135 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     TextInputType? keyboardType,
     int maxLines = 1,
     int? maxLength,
-    bool enabled = true, // ← NEW PARAMETER
+    bool enabled = true,
   }) {
-    return TextFormField(
-      controller: controller,
-      enabled: enabled, // ← NEW: Apply enabled state
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: AppTheme.primaryGreen),
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey[100], // ← Visual feedback when disabled
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.errorRed, width: 2),
-        ),
-        counterText: maxLength != null ? null : '',
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: enabled ? AppTheme.shadowCardLight : [],
       ),
-      validator: validator,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      maxLength: maxLength,
+      child: TextFormField(
+        controller: controller,
+        enabled: enabled,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: AppTheme.bodyMedium.copyWith(
+            color: enabled ? AppTheme.textSecondary : AppTheme.textHint,
+          ),
+          prefixIcon: Icon(
+            icon,
+            color: enabled ? AppTheme.primaryGreen : AppTheme.textHint,
+          ),
+          filled: true,
+          fillColor: enabled ? Colors.white : AppTheme.backgroundLight,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: const BorderSide(color: AppTheme.borderLight, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: const BorderSide(color: AppTheme.errorRed, width: 2),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: const BorderSide(color: AppTheme.errorRed, width: 2),
+          ),
+          counterText: maxLength != null ? null : '',
+        ),
+        style: AppTheme.bodyMedium,
+        validator: validator,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        maxLength: maxLength,
+      ),
     );
   }
 
+  /// Enhanced business type dropdown
   Widget _buildBusinessTypeDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedBusinessType,
-      decoration: InputDecoration(
-        labelText: 'Business Type',
-        prefixIcon: const Icon(Icons.category, color: AppTheme.primaryGreen),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: AppTheme.shadowCardLight,
       ),
-      items: _businessTypes.map((type) {
-        return DropdownMenuItem(value: type, child: Text(type));
-      }).toList(),
-      onChanged: (value) {
-        setState(() {
-          _selectedBusinessType = value;
-          _hasUnsavedChanges = true;
-        });
-      },
-      validator: (val) => val == null ? 'Please select a business type' : null,
+      child: DropdownButtonFormField<String>(
+        value: _selectedBusinessType,
+        decoration: InputDecoration(
+          labelText: 'Business Type',
+          labelStyle: AppTheme.bodyMedium.copyWith(
+            color: AppTheme.textSecondary,
+          ),
+          prefixIcon: const Icon(
+            Icons.category,
+            color: AppTheme.primaryGreen,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: const BorderSide(color: AppTheme.borderLight, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
+          ),
+        ),
+        style: AppTheme.bodyMedium,
+        items: _businessTypes.map((type) {
+          return DropdownMenuItem(
+            value: type,
+            child: Text(type),
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedBusinessType = value;
+            _hasUnsavedChanges = true;
+          });
+        },
+        validator: (val) => val == null ? 'Please select a business type' : null,
+      ),
     );
   }
 
+  /// Enhanced location card
   Widget _buildLocationCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(AppTheme.space16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Status Display
             if (_locationSelectedFromMap && _selectedMapLocation != null)
               Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.all(AppTheme.space16),
+                margin: EdgeInsets.only(bottom: AppTheme.space16),
                 decoration: BoxDecoration(
                   color: AppTheme.successGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   border: Border.all(
                     color: AppTheme.successGreen,
-                    width: 1,
+                    width: 1.5,
                   ),
                 ),
                 child: Column(
@@ -1086,16 +1480,16 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.check_circle,
                           color: AppTheme.successGreen,
-                          size: 20,
+                          size: 24,
                         ),
-                        const SizedBox(width: 8),
-                        const Expanded(
+                        SizedBox(width: AppTheme.space12),
+                        Expanded(
                           child: Text(
                             'Location Updated',
-                            style: TextStyle(
+                            style: AppTheme.titleMedium.copyWith(
                               color: AppTheme.successGreen,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1103,20 +1497,18 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: AppTheme.space12),
                     Text(
                       _selectedMapLocation!['address'] ?? 'Mambusao, Capiz',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: AppTheme.space4),
                     Text(
                       'Lat: ${_latitude?.toStringAsFixed(6)}, Long: ${_longitude?.toStringAsFixed(6)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.textHint,
                       ),
                     ),
                   ],
@@ -1124,37 +1516,40 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
               )
             else if (_hasLocation && _latitude != null && _longitude != null)
               Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.all(AppTheme.space16),
+                margin: EdgeInsets.only(bottom: AppTheme.space16),
                 decoration: BoxDecoration(
                   color: AppTheme.successGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.successGreen,
+                    width: 1.5,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.check_circle,
                       color: AppTheme.successGreen,
-                      size: 20,
+                      size: 24,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: AppTheme.space12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Location Captured via GPS',
-                            style: TextStyle(
+                            style: AppTheme.titleSmall.copyWith(
                               color: AppTheme.successGreen,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: AppTheme.space4),
                           Text(
                             'Lat: ${_latitude!.toStringAsFixed(6)}, Long: ${_longitude!.toStringAsFixed(6)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.textHint,
                             ),
                           ),
                         ],
@@ -1165,25 +1560,30 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
               )
             else
               Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.all(AppTheme.space16),
+                margin: EdgeInsets.only(bottom: AppTheme.space16),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.warningOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.warningOrange,
+                    width: 1.5,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.info_outline,
-                      color: Colors.orange,
-                      size: 20,
+                      color: AppTheme.warningOrange,
+                      size: 24,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: AppTheme.space12),
                     Expanded(
                       child: Text(
                         'No location set',
-                        style: TextStyle(
-                          color: Colors.orange[800],
+                        style: AppTheme.titleSmall.copyWith(
+                          color: AppTheme.warningOrange,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1199,33 +1599,50 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                   child: OutlinedButton.icon(
                     onPressed: _isCapturingLocation ? null : _updateLocation,
                     icon: _isCapturingLocation
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.primaryGreen.withOpacity(0.5),
+                              ),
                             ),
                           )
-                        : const Icon(Icons.my_location),
+                        : const Icon(Icons.my_location, size: 20),
                     label: Text(_isCapturingLocation ? 'Getting...' : 'Use GPS'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.primaryGreen,
-                      side: const BorderSide(color: AppTheme.primaryGreen),
+                      side: const BorderSide(color: AppTheme.primaryGreen, width: 2),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppTheme.space16,
+                        vertical: AppTheme.space16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: AppTheme.space12),
                 // Map Picker Button
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _chooseLocationOnMap,
-                    icon: const Icon(Icons.map),
+                    icon: const Icon(Icons.map, size: 20),
                     label: Text(
-                      _locationSelectedFromMap ? 'Change Location' : 'Choose on Map',
+                      _locationSelectedFromMap ? 'Change' : 'Choose on Map',
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryGreen,
                       foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppTheme.space16,
+                        vertical: AppTheme.space16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
                     ),
                   ),
                 ),
@@ -1237,18 +1654,24 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
     );
   }
 
+  /// Enhanced save button with gradient
   Widget _buildSaveButton() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.primaryGreen, AppTheme.secondaryGreen],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primaryGreen,
+            AppTheme.secondaryGreen,
+          ],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryGreen.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: AppTheme.primaryGreen.withOpacity(0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1258,9 +1681,9 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
           shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: EdgeInsets.symmetric(vertical: AppTheme.space16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           ),
         ),
         child: _isSaving
@@ -1272,9 +1695,19 @@ class _BusinessProfileEditorPageState extends State<BusinessProfileEditorPage> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'Save Changes',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.save, size: 20),
+                  SizedBox(width: AppTheme.space12),
+                  Text(
+                    'Save Changes',
+                    style: AppTheme.titleMedium.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
       ),
     );

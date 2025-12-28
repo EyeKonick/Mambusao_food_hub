@@ -179,9 +179,22 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              ),
               title: Row(
                 children: [
-                  Icon(Icons.add_circle, color: AppTheme.primaryGreen),
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.space8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: const Icon(
+                      Icons.add_circle_outline,
+                      color: AppTheme.primaryGreen,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   const Text('Add Menu Item'),
                 ],
@@ -407,10 +420,20 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
 
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(
-                                    '${nameController.text} added successfully!'
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, color: Colors.white),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text('${nameController.text} added successfully!'),
+                                      ),
+                                    ],
                                   ),
                                   backgroundColor: AppTheme.successGreen,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                  ),
                                 ),
                               );
                             } catch (e) {
@@ -463,6 +486,9 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              ),
               title: Row(
                 children: [
                   Icon(Icons.edit, color: AppTheme.primaryGreen),
@@ -695,8 +721,18 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
 
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: const Text('Menu item updated!'),
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, color: Colors.white),
+                                      const SizedBox(width: 12),
+                                      const Text('Menu item updated!'),
+                                    ],
+                                  ),
                                   backgroundColor: AppTheme.successGreen,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                  ),
                                 ),
                               );
                             } catch (e) {
@@ -737,8 +773,30 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Delete Menu Item'),
-          content: Text('Are you sure you want to delete "$itemName"?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space8),
+                decoration: BoxDecoration(
+                  color: AppTheme.errorRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: const Icon(
+                  Icons.delete_outline,
+                  color: AppTheme.errorRed,
+                ),
+              ),
+              const SizedBox(width: AppTheme.space12),
+              const Expanded(child: Text('Delete Menu Item')),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to delete "$itemName"? This action cannot be undone.',
+            style: AppTheme.bodyMedium,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -768,9 +826,19 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('"$itemName" deleted successfully'),
-            backgroundColor: AppTheme.successGreen,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Text('"$itemName" deleted successfully'),
+            ],
           ),
+          backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+        ),
         );
       } catch (e) {
         if (AppConfig.enableDebugMode) {
@@ -807,10 +875,19 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            currentStatus
-                ? 'Item marked as unavailable'
-                : 'Item marked as available',
+          content: Row(
+            children: [
+              Icon(
+                currentStatus ? Icons.visibility_off : Icons.visibility,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                currentStatus
+                    ? 'Item marked as unavailable'
+                    : 'Item marked as available',
+              ),
+            ],
           ),
           backgroundColor: AppTheme.successGreen,
         ),
@@ -840,8 +917,13 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
     final imageUrl = data['imageUrl'];
     final isAvailable = data['isAvailable'] ?? true;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppTheme.space16, vertical: AppTheme.space8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: InkWell(
         onTap: () => _showEditMenuItemDialog(menuItem),
         borderRadius: BorderRadius.circular(12),
@@ -1003,24 +1085,44 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: AppTheme.errorRed),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading menu items',
-                  style: AppTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  snapshot.error.toString(),
-                  style: AppTheme.bodySmall.copyWith(
-                    color: AppTheme.textSecondary,
+            child: Container(
+              margin: const EdgeInsets.all(AppTheme.space32),
+              padding: const EdgeInsets.all(AppTheme.space24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: AppTheme.shadowCardLight,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.space16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorRed.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppTheme.errorRed,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: AppTheme.space16),
+                  Text(
+                    'Error loading menu items',
+                    style: AppTheme.titleLarge,
+                  ),
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    snapshot.error.toString(),
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -1030,8 +1132,11 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(color: AppTheme.primaryGreen),
-                const SizedBox(height: 16),
+                CircularProgressIndicator(
+                  color: AppTheme.primaryGreen,
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: AppTheme.space16),
                 Text(
                   'Loading menu items...',
                   style: AppTheme.bodyMedium.copyWith(
@@ -1054,29 +1159,46 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
 
         if (items.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.restaurant_menu,
-                  size: 64,
-                  color: AppTheme.primaryGreen.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  category == 'All'
-                      ? 'No menu items yet'
-                      : 'No items in $category',
-                  style: AppTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tap the + button to add your first item',
-                  style: AppTheme.bodySmall.copyWith(
-                    color: AppTheme.textSecondary,
+            child: Container(
+              margin: const EdgeInsets.all(AppTheme.space32),
+              padding: const EdgeInsets.all(AppTheme.space32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: AppTheme.shadowCardLight,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.space24),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.restaurant_menu,
+                      size: 64,
+                      color: AppTheme.primaryGreen.withOpacity(0.6),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: AppTheme.space24),
+                  Text(
+                    category == 'All'
+                        ? 'No menu items yet'
+                        : 'No items in $category',
+                    style: AppTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: AppTheme.space8),
+                  Text(
+                    'Tap the + button below to add your first delicious item!',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -1143,7 +1265,7 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
                 // Overview Cards
                 Text(
                   'Menu Overview',
-                  style: AppTheme.headingMedium,
+                  style: AppTheme.titleMedium,
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -1195,7 +1317,7 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
                 // Category Breakdown
                 Text(
                   'Items by Category',
-                  style: AppTheme.headingMedium,
+                  style: AppTheme.titleMedium,
                 ),
                 const SizedBox(height: 16),
                 if (categoryCount.isEmpty)
@@ -1250,24 +1372,36 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
 
   // ==================== BUILD STAT CARD ====================
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.space16),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(AppTheme.space12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 32, color: color),
+            ),
+            const SizedBox(height: AppTheme.space12),
             Text(
               value,
-              style: AppTheme.headingMedium.copyWith(
+              style: AppTheme.headlineMedium.copyWith(
                 color: color,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppTheme.space4),
             Text(
               label,
-              style: AppTheme.bodySmall.copyWith(
+              style: AppTheme.labelSmall.copyWith(
                 color: AppTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
@@ -1335,7 +1469,7 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
               const SizedBox(height: 16),
               Text(
                 'Error',
-                style: AppTheme.headingMedium,
+                style: AppTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Padding(
@@ -1361,6 +1495,7 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1401,9 +1536,14 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
                   final isSelected = category == _selectedCategory;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(category),
-                      selected: isSelected,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                        boxShadow: isSelected ? AppTheme.shadowCardLight : null,
+                      ),
+                      child: FilterChip(
+                        label: Text(category),
+                        selected: isSelected,
                       onSelected: (selected) {
                         setState(() {
                           _selectedCategory = category;
@@ -1413,6 +1553,7 @@ class _MenuItemsPageState extends State<MenuItemsPage> with SingleTickerProvider
                       selectedColor: AppTheme.primaryGreen,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.white : AppTheme.textPrimary,
+                      ),
                       ),
                     ),
                   );

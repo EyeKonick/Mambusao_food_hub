@@ -254,7 +254,7 @@ class _BusinessDashboardState extends State<BusinessDashboardPage> {
                     const SizedBox(height: 24),
                     Text(
                       'Application Rejected',
-                      style: AppTheme.headingLarge.copyWith(
+                      style: AppTheme.titleLarge.copyWith(
                         color: AppTheme.errorRed,
                         fontWeight: FontWeight.bold,
                       ),
@@ -365,7 +365,7 @@ class _BusinessDashboardState extends State<BusinessDashboardPage> {
                     const SizedBox(height: 24),
                     Text(
                       'Registration Pending',
-                      style: AppTheme.headingLarge.copyWith(
+                      style: AppTheme.titleLarge.copyWith(
                         color: AppTheme.accentYellow,
                         fontWeight: FontWeight.bold,
                       ),
@@ -535,7 +535,7 @@ class _BusinessDashboardState extends State<BusinessDashboardPage> {
                 const SizedBox(height: 4),
                 Text(
                   _businessName,
-                  style: AppTheme.headingMedium.copyWith(color: Colors.white),
+                  style: AppTheme.titleLarge.copyWith(color: Colors.white),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -610,15 +610,17 @@ class _BusinessDashboardState extends State<BusinessDashboardPage> {
               value: '$bookmarkCount',
               color: Colors.red,
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => BusinessBookmarksPage(
-                      businessId: _currentUser!.uid,
-                      businessName: _businessName,
+                if (_currentUser != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BusinessBookmarksPage(
+                        businessId: _currentUser!.uid,
+                        businessName: _businessName,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
               },
             );
           },
@@ -955,10 +957,26 @@ class _BusinessDashboardState extends State<BusinessDashboardPage> {
       ),
     );
   }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    if (dateOnly == today) {
+      return 'Today';
+    } else if (dateOnly == yesterday) {
+      return 'Yesterday';
+    } else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
+  }
 }
 
 // ============================================================================
-// BUSINESS VIEWS PAGE - Track who viewed your business
+// BUSINESS VIEWS PAGE
 // ============================================================================
 class BusinessViewsPage extends StatelessWidget {
   final String businessId;
@@ -998,7 +1016,7 @@ class BusinessViewsPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     'No views yet',
-                    style: AppTheme.headingMedium.copyWith(color: Colors.grey[600]),
+                    style: AppTheme.titleLarge.copyWith(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -1150,7 +1168,7 @@ class BusinessViewsPage extends StatelessWidget {
 }
 
 // ============================================================================
-// BUSINESS BOOKMARKS PAGE - See who bookmarked your business
+// BUSINESS BOOKMARKS PAGE
 // ============================================================================
 class BusinessBookmarksPage extends StatelessWidget {
   final String businessId;
@@ -1188,7 +1206,7 @@ class BusinessBookmarksPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     'No bookmarks yet',
-                    style: AppTheme.headingMedium.copyWith(color: Colors.grey[600]),
+                    style: AppTheme.titleLarge.copyWith(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -1403,7 +1421,7 @@ class BusinessBookmarksPage extends StatelessWidget {
 }
 
 // ============================================================================
-// BUSINESS REVIEWS PAGE - View and respond to reviews
+// BUSINESS REVIEWS PAGE
 // ============================================================================
 class BusinessReviewsPage extends StatefulWidget {
   final String businessId;
@@ -1606,7 +1624,7 @@ class _BusinessReviewsPageState extends State<BusinessReviewsPage> {
                             const SizedBox(height: 16),
                             Text(
                               'No reviews yet',
-                              style: AppTheme.headingMedium.copyWith(color: Colors.grey[600]),
+                              style: AppTheme.titleLarge.copyWith(color: Colors.grey[600]),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -1916,7 +1934,7 @@ class _BusinessReviewsPageState extends State<BusinessReviewsPage> {
 }
 
 // ============================================================================
-// BUSINESS ANALYTICS PAGE - Comprehensive business insights
+// BUSINESS ANALYTICS PAGE
 // ============================================================================
 class BusinessAnalyticsPage extends StatelessWidget {
   final String businessId;
@@ -1969,7 +1987,7 @@ class BusinessAnalyticsPage extends StatelessWidget {
                             const SizedBox(width: 12),
                             Text(
                               'Performance Overview',
-                              style: AppTheme.headingMedium.copyWith(
+                              style: AppTheme.titleLarge.copyWith(
                                 color: Colors.indigo,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -2029,7 +2047,7 @@ class BusinessAnalyticsPage extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Text(
                                   'Bookmark Insights',
-                                  style: AppTheme.headingMedium.copyWith(
+                                  style: AppTheme.titleLarge.copyWith(
                                     color: Colors.red,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -2114,7 +2132,7 @@ class BusinessAnalyticsPage extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Text(
                                   'Rating Distribution',
-                                  style: AppTheme.headingMedium.copyWith(
+                                  style: AppTheme.titleLarge.copyWith(
                                     color: Colors.amber[700],
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -2170,8 +2188,7 @@ class BusinessAnalyticsPage extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 16),
-
+                
                 // Response Rate
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
@@ -2209,7 +2226,7 @@ class BusinessAnalyticsPage extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Text(
                                   'Customer Engagement',
-                                  style: AppTheme.headingMedium.copyWith(
+                                  style: AppTheme.titleLarge.copyWith(
                                     color: AppTheme.primaryGreen,
                                     fontWeight: FontWeight.bold,
                                   ),

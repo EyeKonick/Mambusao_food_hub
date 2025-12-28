@@ -158,7 +158,7 @@ class _AdminAuthPageState extends State<AdminAuthPage> {
                   // Title
                   Text(
                     'Admin Access',
-                    style: AppTheme.headingLarge.copyWith(
+                    style: AppTheme.titleLarge.copyWith(
                       color: AppTheme.primaryGreen,
                     ),
                     textAlign: TextAlign.center,

@@ -74,7 +74,7 @@ class AboutPage extends StatelessWidget {
                     const SizedBox(height: 16),
                     Text(
                       AppConfig.appName,
-                      style: AppTheme.headingLarge.copyWith(
+                      style: AppTheme.titleLarge.copyWith(
                         color: AppTheme.primaryGreen,
                       ),
                     ),

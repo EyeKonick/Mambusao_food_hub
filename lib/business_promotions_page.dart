@@ -78,9 +78,19 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
           // Refresh handled by StreamBuilder
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✓ Promotion created successfully!'),
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Text('Promotion created successfully!'),
+                  ],
+                ),
                 backgroundColor: AppTheme.successGreen,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
               ),
             );
           }
@@ -97,9 +107,19 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
         onPromotionUpdated: () {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✓ Promotion updated successfully!'),
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Text('Promotion updated successfully!'),
+                  ],
+                ),
                 backgroundColor: AppTheme.successGreen,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
               ),
             );
           }
@@ -118,12 +138,25 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            newStatus
-                ? '✓ Promotion activated'
-                : 'Promotion deactivated',
+          content: Row(
+            children: [
+              Icon(
+                newStatus ? Icons.check_circle : Icons.info_outline,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                newStatus
+                    ? 'Promotion activated'
+                    : 'Promotion deactivated',
+              ),
+            ],
           ),
-          backgroundColor: AppTheme.successGreen,
+          backgroundColor: newStatus ? AppTheme.successGreen : AppTheme.warningOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     }
@@ -133,9 +166,31 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Promotion'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.errorRed.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              ),
+              child: const Icon(
+                Icons.delete_outline,
+                color: AppTheme.errorRed,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Delete Promotion'),
+            ),
+          ],
+        ),
         content: Text(
           'Are you sure you want to delete "${promotion.title}"? This action cannot be undone.',
+          style: AppTheme.bodyMedium,
         ),
         actions: [
           TextButton(
@@ -146,6 +201,7 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorRed,
+              foregroundColor: Colors.white,
             ),
             child: const Text('Delete'),
           ),
@@ -158,9 +214,19 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
       
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Promotion deleted'),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                const Text('Promotion deleted'),
+              ],
+            ),
             backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
@@ -174,132 +240,107 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
     
     Color statusColor;
     String statusText;
+    IconData statusIcon;
     
     if (isExpired) {
       statusColor = AppTheme.textSecondary;
       statusText = 'EXPIRED';
+      statusIcon = Icons.event_busy;
     } else if (isScheduled) {
       statusColor = AppTheme.accentBlue;
       statusText = 'SCHEDULED';
+      statusIcon = Icons.schedule;
     } else if (!promotion.isActive) {
       statusColor = AppTheme.warningOrange;
       statusText = 'INACTIVE';
+      statusIcon = Icons.pause_circle_outline;
     } else {
       statusColor = AppTheme.successGreen;
       statusText = 'ACTIVE';
+      statusIcon = Icons.check_circle;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ExpansionTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.local_offer,
-            color: statusColor,
-          ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTheme.space16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+        border: Border.all(
+          color: statusColor.withOpacity(0.2),
+          width: 1,
         ),
-        title: Text(
-          promotion.title,
-          style: AppTheme.titleMedium,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                statusText,
-                style: AppTheme.bodySmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isScheduled
-                  ? 'Starts in ${promotion.startDate.difference(now).inDays} days'
-                  : isExpired
-                      ? 'Ended ${now.difference(promotion.endDate).inDays} days ago'
-                      : '${promotion.daysRemaining} days remaining',
-              style: AppTheme.bodySmall.copyWith(
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
+      ),
+      child: Column(
         children: [
+          // Header with promotion image or icon
+          if (promotion.imageUrl != null)
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.radiusLarge),
+                topRight: Radius.circular(AppTheme.radiusLarge),
+              ),
+              child: Image.network(
+                promotion.imageUrl!,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 160,
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    child: const Icon(
+                      Icons.local_offer,
+                      size: 64,
+                      color: AppTheme.primaryGreen,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+          // Content
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.space16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Description
-                Text(
-                  'Description',
-                  style: AppTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  promotion.description,
-                  style: AppTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-
-                // Dates
+                // Title and Status Badge
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Start Date',
-                            style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${promotion.startDate.day}/${promotion.startDate.month}/${promotion.startDate.year}',
-                            style: AppTheme.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        promotion.title,
+                        style: AppTheme.titleLarge,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(width: AppTheme.space8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space12,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'End Date',
-                            style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.textSecondary,
-                            ),
+                          Icon(
+                            statusIcon,
+                            color: Colors.white,
+                            size: 14,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(width: 4),
                           Text(
-                            '${promotion.endDate.day}/${promotion.endDate.month}/${promotion.endDate.year}',
-                            style: AppTheme.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w600,
+                            statusText,
+                            style: AppTheme.labelSmall.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -307,7 +348,148 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                
+                const SizedBox(height: AppTheme.space12),
+
+                // Description
+                Text(
+                  promotion.description,
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                const SizedBox(height: AppTheme.space16),
+
+                // Date Information
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.space12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundLight,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Row(
+                    children: [
+                      // Start Date
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Start Date',
+                                  style: AppTheme.labelSmall.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${promotion.startDate.day}/${promotion.startDate.month}/${promotion.startDate.year}',
+                              style: AppTheme.bodyMedium.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Divider
+                      Container(
+                        height: 40,
+                        width: 1,
+                        color: AppTheme.dividerColor,
+                      ),
+                      
+                      // End Date
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const SizedBox(width: AppTheme.space12),
+                                Icon(
+                                  Icons.event,
+                                  size: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'End Date',
+                                  style: AppTheme.labelSmall.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.only(left: AppTheme.space12),
+                              child: Text(
+                                '${promotion.endDate.day}/${promotion.endDate.month}/${promotion.endDate.year}',
+                                style: AppTheme.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppTheme.space12),
+
+                // Time Status
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space12,
+                    vertical: AppTheme.space8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    border: Border.all(
+                      color: statusColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: statusColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isScheduled
+                            ? 'Starts in ${promotion.startDate.difference(now).inDays} days'
+                            : isExpired
+                                ? 'Ended ${now.difference(promotion.endDate).inDays} days ago'
+                                : '${promotion.daysRemaining} days remaining',
+                        style: AppTheme.bodySmall.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppTheme.space16),
 
                 // Action Buttons
                 Row(
@@ -321,30 +503,67 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
                             promotion.isActive
                                 ? Icons.pause_circle_outline
                                 : Icons.play_circle_outline,
+                            size: 18,
                           ),
                           label: Text(
-                            promotion.isActive ? 'Deactivate' : 'Activate',
+                            promotion.isActive ? 'Pause' : 'Activate',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: promotion.isActive 
+                                ? AppTheme.warningOrange 
+                                : AppTheme.successGreen,
+                            side: BorderSide(
+                              color: promotion.isActive 
+                                  ? AppTheme.warningOrange 
+                                  : AppTheme.successGreen,
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                            ),
                           ),
                         ),
                       ),
-                    const SizedBox(width: 8),
+                    
+                    if (!isExpired) const SizedBox(width: AppTheme.space8),
                     
                     // Edit
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _showEditPromotionDialog(promotion),
-                        icon: const Icon(Icons.edit),
+                        icon: const Icon(Icons.edit, size: 18),
                         label: const Text('Edit'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryGreen,
+                          side: const BorderSide(
+                            color: AppTheme.primaryGreen,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    
+                    const SizedBox(width: AppTheme.space8),
                     
                     // Delete
-                    IconButton(
-                      onPressed: () => _deletePromotion(promotion),
-                      icon: const Icon(Icons.delete),
-                      color: AppTheme.errorRed,
-                      tooltip: 'Delete promotion',
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        border: Border.all(
+                          color: AppTheme.errorRed.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: IconButton(
+                        onPressed: () => _deletePromotion(promotion),
+                        icon: const Icon(Icons.delete_outline),
+                        color: AppTheme.errorRed,
+                        tooltip: 'Delete promotion',
+                      ),
                     ),
                   ],
                 ),
@@ -360,15 +579,20 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
           title: const Text('Promotions'),
+          elevation: 0,
         ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: AppTheme.primaryGreen),
-              const SizedBox(height: 16),
+              CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: AppTheme.space16),
               Text(
                 'Loading promotions...',
                 style: AppTheme.bodyMedium.copyWith(
@@ -382,43 +606,64 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Promotions'),
+        elevation: 0,
       ),
       body: StreamBuilder<List<Promotion>>(
         stream: _promotionService.getBusinessPromotions(_businessId),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: AppTheme.errorRed,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading promotions',
-                    style: AppTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    snapshot.error.toString(),
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.textSecondary,
+              child: Container(
+                margin: const EdgeInsets.all(AppTheme.space32),
+                padding: const EdgeInsets.all(AppTheme.space24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.shadowCardLight,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorRed.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: AppTheme.errorRed,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                    const SizedBox(height: AppTheme.space16),
+                    Text(
+                      'Error loading promotions',
+                      style: AppTheme.titleLarge,
+                    ),
+                    const SizedBox(height: AppTheme.space8),
+                    Text(
+                      snapshot.error.toString(),
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             );
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+              child: CircularProgressIndicator(
+                color: AppTheme.primaryGreen,
+                strokeWidth: 3,
+              ),
             );
           }
 
@@ -426,34 +671,56 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
 
           if (promotions.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.local_offer,
-                    size: 80,
-                    color: AppTheme.primaryGreen.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No promotions yet',
-                    style: AppTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Create your first promotion to attract customers',
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.textSecondary,
+              child: Container(
+                margin: const EdgeInsets.all(AppTheme.space32),
+                padding: const EdgeInsets.all(AppTheme.space32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.shadowCardLight,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryGreen.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.local_offer,
+                        size: 80,
+                        color: AppTheme.primaryGreen.withOpacity(0.6),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: _showCreatePromotionDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create Promotion'),
-                  ),
-                ],
+                    const SizedBox(height: AppTheme.space24),
+                    Text(
+                      'No promotions yet',
+                      style: AppTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: AppTheme.space8),
+                    Text(
+                      'Create your first promotion to attract customers\nand boost your business!',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+                    ElevatedButton.icon(
+                      onPressed: _showCreatePromotionDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Create Promotion'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.space24,
+                          vertical: AppTheme.space16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -484,100 +751,267 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
           }).toList();
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppTheme.space16),
             children: [
               // Stats Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Overview',
-                        style: AppTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          _buildStatItem(
-                            'Active',
-                            activePromotions.length.toString(),
-                            AppTheme.successGreen,
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.shadowCard,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(AppTheme.space8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                           ),
-                          _buildStatItem(
-                            'Scheduled',
-                            scheduledPromotions.length.toString(),
-                            AppTheme.accentBlue,
+                          child: const Icon(
+                            Icons.bar_chart,
+                            color: AppTheme.primaryGreen,
+                            size: 20,
                           ),
-                          _buildStatItem(
-                            'Inactive',
-                            inactivePromotions.length.toString(),
-                            AppTheme.warningOrange,
-                          ),
-                          _buildStatItem(
-                            'Expired',
-                            expiredPromotions.length.toString(),
-                            AppTheme.textSecondary,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                        const SizedBox(width: AppTheme.space12),
+                        Text(
+                          'Overview',
+                          style: AppTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.space20),
+                    Row(
+                      children: [
+                        _buildStatItem(
+                          'Active',
+                          activePromotions.length.toString(),
+                          AppTheme.successGreen,
+                          Icons.check_circle,
+                        ),
+                        _buildStatItem(
+                          'Scheduled',
+                          scheduledPromotions.length.toString(),
+                          AppTheme.accentBlue,
+                          Icons.schedule,
+                        ),
+                        _buildStatItem(
+                          'Inactive',
+                          inactivePromotions.length.toString(),
+                          AppTheme.warningOrange,
+                          Icons.pause_circle,
+                        ),
+                        _buildStatItem(
+                          'Expired',
+                          expiredPromotions.length.toString(),
+                          AppTheme.textSecondary,
+                          Icons.event_busy,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.space24),
 
               // Active Promotions
               if (activePromotions.isNotEmpty) ...[
-                Text(
-                  'Active (${activePromotions.length})',
-                  style: AppTheme.titleMedium.copyWith(
-                    color: AppTheme.successGreen,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: AppTheme.successGreen,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Text(
+                      'Active',
+                      style: AppTheme.titleLarge.copyWith(
+                        color: AppTheme.successGreen,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space8,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successGreen,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Text(
+                        activePromotions.length.toString(),
+                        style: AppTheme.labelSmall.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTheme.space12),
                 ...activePromotions.map(_buildPromotionCard),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.space24),
               ],
 
               // Scheduled Promotions
               if (scheduledPromotions.isNotEmpty) ...[
-                Text(
-                  'Scheduled (${scheduledPromotions.length})',
-                  style: AppTheme.titleMedium.copyWith(
-                    color: AppTheme.accentBlue,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: const Icon(
+                        Icons.schedule,
+                        color: AppTheme.accentBlue,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Text(
+                      'Scheduled',
+                      style: AppTheme.titleLarge.copyWith(
+                        color: AppTheme.accentBlue,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space8,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentBlue,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Text(
+                        scheduledPromotions.length.toString(),
+                        style: AppTheme.labelSmall.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTheme.space12),
                 ...scheduledPromotions.map(_buildPromotionCard),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.space24),
               ],
 
               // Inactive Promotions
               if (inactivePromotions.isNotEmpty) ...[
-                Text(
-                  'Inactive (${inactivePromotions.length})',
-                  style: AppTheme.titleMedium.copyWith(
-                    color: AppTheme.warningOrange,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningOrange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: const Icon(
+                        Icons.pause_circle,
+                        color: AppTheme.warningOrange,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Text(
+                      'Inactive',
+                      style: AppTheme.titleLarge.copyWith(
+                        color: AppTheme.warningOrange,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space8,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningOrange,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Text(
+                        inactivePromotions.length.toString(),
+                        style: AppTheme.labelSmall.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTheme.space12),
                 ...inactivePromotions.map(_buildPromotionCard),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTheme.space24),
               ],
 
               // Expired Promotions
               if (expiredPromotions.isNotEmpty) ...[
-                Text(
-                  'Expired (${expiredPromotions.length})',
-                  style: AppTheme.titleMedium.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.textSecondary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Icon(
+                        Icons.event_busy,
+                        color: AppTheme.textSecondary,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Text(
+                      'Expired',
+                      style: AppTheme.titleLarge.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.space8,
+                        vertical: AppTheme.space4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.textSecondary,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      ),
+                      child: Text(
+                        expiredPromotions.length.toString(),
+                        style: AppTheme.labelSmall.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTheme.space12),
                 ...expiredPromotions.map(_buildPromotionCard),
               ],
+              
+              // Bottom padding
+              const SizedBox(height: 80),
             ],
           );
         },
@@ -587,25 +1021,39 @@ class _BusinessPromotionsPageState extends State<BusinessPromotionsPage> {
         icon: const Icon(Icons.add),
         label: const Text('New Promotion'),
         backgroundColor: AppTheme.primaryGreen,
+        elevation: 4,
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
+  Widget _buildStatItem(String label, String value, Color color, IconData icon) {
     return Expanded(
       child: Column(
         children: [
+          Container(
+            padding: const EdgeInsets.all(AppTheme.space12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: AppTheme.space8),
           Text(
             value,
-            style: AppTheme.headingLarge.copyWith(
+            style: AppTheme.headlineMedium.copyWith(
               color: color,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppTheme.space4),
           Text(
             label,
-            style: AppTheme.bodySmall.copyWith(
+            style: AppTheme.labelSmall.copyWith(
               color: AppTheme.textSecondary,
             ),
             textAlign: TextAlign.center,
@@ -725,6 +1173,18 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
       initialDate: _startDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryGreen,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null && mounted) {
@@ -744,6 +1204,18 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
       initialDate: _endDate ?? (_startDate ?? DateTime.now()).add(const Duration(days: 7)),
       firstDate: _startDate ?? DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryGreen,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null && mounted) {
@@ -757,9 +1229,19 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
     if (!_formKey.currentState!.validate()) return;
     if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select start and end dates'),
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Please select start and end dates'),
+            ],
+          ),
           backgroundColor: AppTheme.warningOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
       return;
@@ -803,6 +1285,10 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
@@ -818,7 +1304,26 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Create Promotion'),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppTheme.space8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            ),
+            child: const Icon(
+              Icons.add_circle_outline,
+              color: AppTheme.primaryGreen,
+            ),
+          ),
+          const SizedBox(width: AppTheme.space12),
+          const Text('Create Promotion'),
+        ],
+      ),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -829,10 +1334,13 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
               // Title
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Promotion Title *',
                   hintText: 'e.g., Buy 1 Take 1',
-                  prefixIcon: Icon(Icons.title),
+                  prefixIcon: const Icon(Icons.title),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -841,15 +1349,19 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.space16),
 
               // Description
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Description *',
                   hintText: 'Describe your promotion',
-                  prefixIcon: Icon(Icons.description),
+                  prefixIcon: const Icon(Icons.description),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  alignLabelWithHint: true,
                 ),
                 maxLines: 3,
                 validator: (value) {
@@ -859,52 +1371,170 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.space16),
 
-              // Start Date
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today),
-                title: const Text('Start Date'),
-                subtitle: Text(
-                  _startDate != null
-                      ? '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'
-                      : 'Not selected',
+              // Dates Section
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space12),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundLight,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.borderLight,
+                    width: 1,
+                  ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _selectStartDate,
+                child: Column(
+                  children: [
+                    // Start Date
+                    InkWell(
+                      onTap: _selectStartDate,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.space8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.space8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                              ),
+                              child: const Icon(
+                                Icons.calendar_today,
+                                color: AppTheme.primaryGreen,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Start Date',
+                                    style: AppTheme.labelSmall.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _startDate != null
+                                        ? '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'
+                                        : 'Not selected',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: _startDate != null 
+                                          ? AppTheme.textPrimary 
+                                          : AppTheme.textHint,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const Divider(height: 1),
+
+                    // End Date
+                    InkWell(
+                      onTap: _selectEndDate,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.space8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.space8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                              ),
+                              child: const Icon(
+                                Icons.event,
+                                color: AppTheme.accentBlue,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'End Date',
+                                    style: AppTheme.labelSmall.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _endDate != null
+                                        ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
+                                        : 'Not selected',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: _endDate != null 
+                                          ? AppTheme.textPrimary 
+                                          : AppTheme.textHint,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
-              // End Date
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event),
-                title: const Text('End Date'),
-                subtitle: Text(
-                  _endDate != null
-                      ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
-                      : 'Not selected',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _selectEndDate,
-              ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.space16),
 
               // Image Picker
               OutlinedButton.icon(
                 onPressed: _isUploading ? null : _pickImage,
                 icon: Icon(_selectedImage != null ? Icons.check_circle : Icons.image),
                 label: Text(_selectedImage != null ? 'Image Selected' : 'Add Image (Optional)'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _selectedImage != null 
+                      ? AppTheme.successGreen 
+                      : AppTheme.primaryGreen,
+                  side: BorderSide(
+                    color: _selectedImage != null 
+                        ? AppTheme.successGreen 
+                        : AppTheme.primaryGreen,
+                    width: 1.5,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppTheme.space12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                ),
               ),
 
               if (_selectedImage != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTheme.space12),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   child: Image.file(
                     _selectedImage!,
                     height: 150,
+                    width: double.infinity,
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -920,6 +1550,12 @@ class _CreatePromotionDialogState extends State<_CreatePromotionDialog> {
         ),
         ElevatedButton(
           onPressed: _isUploading ? null : _createPromotion,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.space24,
+              vertical: AppTheme.space12,
+            ),
+          ),
           child: _isUploading
               ? const SizedBox(
                   width: 20,
@@ -982,6 +1618,18 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
       initialDate: _startDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryGreen,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null && mounted) {
@@ -1000,6 +1648,18 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
       initialDate: _endDate,
       firstDate: _startDate,
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryGreen,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null && mounted) {
@@ -1040,6 +1700,10 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
@@ -1055,7 +1719,26 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit Promotion'),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppTheme.space8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            ),
+            child: const Icon(
+              Icons.edit,
+              color: AppTheme.primaryGreen,
+            ),
+          ),
+          const SizedBox(width: AppTheme.space12),
+          const Text('Edit Promotion'),
+        ],
+      ),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -1066,9 +1749,12 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
               // Title
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Promotion Title *',
-                  prefixIcon: Icon(Icons.title),
+                  prefixIcon: const Icon(Icons.title),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -1077,14 +1763,18 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.space16),
 
               // Description
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Description *',
-                  prefixIcon: Icon(Icons.description),
+                  prefixIcon: const Icon(Icons.description),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  alignLabelWithHint: true,
                 ),
                 maxLines: 3,
                 validator: (value) {
@@ -1094,30 +1784,124 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppTheme.space16),
 
-              // Start Date
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today),
-                title: const Text('Start Date'),
-                subtitle: Text(
-                  '${_startDate.day}/${_startDate.month}/${_startDate.year}',
+              // Dates Section
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space12),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundLight,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                    color: AppTheme.borderLight,
+                    width: 1,
+                  ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _selectStartDate,
-              ),
+                child: Column(
+                  children: [
+                    // Start Date
+                    InkWell(
+                      onTap: _selectStartDate,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.space8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.space8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                              ),
+                              child: const Icon(
+                                Icons.calendar_today,
+                                color: AppTheme.primaryGreen,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Start Date',
+                                    style: AppTheme.labelSmall.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_startDate.day}/${_startDate.month}/${_startDate.year}',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
 
-              // End Date
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event),
-                title: const Text('End Date'),
-                subtitle: Text(
-                  '${_endDate.day}/${_endDate.month}/${_endDate.year}',
+                    const Divider(height: 1),
+
+                    // End Date
+                    InkWell(
+                      onTap: _selectEndDate,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.space8),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.space8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentBlue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                              ),
+                              child: const Icon(
+                                Icons.event,
+                                color: AppTheme.accentBlue,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.space12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'End Date',
+                                    style: AppTheme.labelSmall.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_endDate.day}/${_endDate.month}/${_endDate.year}',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _selectEndDate,
               ),
             ],
           ),
@@ -1130,6 +1914,12 @@ class _EditPromotionDialogState extends State<_EditPromotionDialog> {
         ),
         ElevatedButton(
           onPressed: _isUploading ? null : _updatePromotion,
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.space24,
+              vertical: AppTheme.space12,
+            ),
+          ),
           child: _isUploading
               ? const SizedBox(
                   width: 20,

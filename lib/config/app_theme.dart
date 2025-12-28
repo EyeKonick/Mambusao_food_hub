@@ -1,62 +1,221 @@
 // lib/config/app_theme.dart
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Central theme configuration for MamFood Hub
 /// 
-/// This file defines:
-/// - All colors used in the app
-/// - Text styles
-/// - Button styles
-/// - Card styles
-/// - Input field styles
-/// 
-/// Why do this?
-/// - Consistent look throughout the app
-/// - Change design once, updates everywhere
-/// - Easy to switch between light/dark themes
+/// Enhanced UI Phase - Modern, clean design with Poppins font
 class AppTheme {
-  // Private constructor - this class is not meant to be instantiated
   AppTheme._();
 
   // ==================== COLORS ====================
   
-  // Primary brand colors (your green theme)
-  static const Color primaryGreen = Color(0xFF1B5E20); // Dark forest green
-  static const Color secondaryGreen = Color(0xFF4CAF50); // Lighter green
-  static const Color accentGreen = Color(0xFF66BB6A); // Even lighter green
-  static const Color lightGreen = Color(0xFFC8E6C9); // Very light green (backgrounds)
+  // Primary brand colors (green theme)
+  static const Color primaryGreen = Color(0xFF1B5E20);
+  static const Color secondaryGreen = Color(0xFF4CAF50);
+  static const Color accentGreen = Color(0xFF66BB6A);
+  static const Color lightGreen = Color(0xFFC8E6C9);
   
-  // Accent colors for specific purposes
-  static const Color accentYellow = Color(0xFFFFC107); // For ratings, highlights
-  static const Color accentRed = Color(0xFFF44336); // For errors, delete actions
-  static const Color accentBlue = Color(0xFF2196F3); // For links, info
-
-  static const Color successGreen = Color(0xFF4CAF50); // For success messages
-  static const Color errorRed = Color(0xFFF44336); // For errors
-  static const Color warningOrange = Color(0xFFFF9800); // For warnings
-  static const Color surfaceColor = Color(0xFFF5F5F5); // For surface backgrounds
+  // Accent colors
+  static const Color accentYellow = Color(0xFFFFC107);
+  static const Color accentRed = Color(0xFFF44336);
+  static const Color accentBlue = Color(0xFF2196F3);
+  static const Color successGreen = Color(0xFF4CAF50);
+  static const Color errorRed = Color(0xFFF44336);
+  static const Color warningOrange = Color(0xFFFF9800);
   
-  // Neutral colors
-  static const Color backgroundColor = Color(0xFFF5F5F5); // Light gray background
-  static const Color cardBackground = Color(0xFFFFFFFF); // White cards
-  static const Color dividerColor = Color(0xFFE0E0E0); // Light gray dividers
+  // Background colors
+  static const Color backgroundColor = Color(0xFFF5F5F5);
+  static const Color backgroundLight = Color(0xFFFAFAFA);
+  static const Color backgroundWhite = Color(0xFFFFFFFF);
+  static const Color cardBackground = Color(0xFFFFFFFF);
+  static const Color surfaceColor = Color(0xFFF5F5F5);
   
   // Text colors
-  static const Color textPrimary = Color(0xFF212121); // Almost black
-  static const Color textSecondary = Color(0xFF757575); // Gray
-  static const Color textHint = Color(0xFF9E9E9E); // Light gray
-  static const Color textWhite = Color(0xFFFFFFFF); // White
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color textHint = Color(0xFF9E9E9E);
+  static const Color textWhite = Color(0xFFFFFFFF);
+  
+  // Border colors
+  static const Color borderLight = Color(0xFFE0E0E0);
+  static const Color borderMedium = Color(0xFFBDBDBD);
+  static const Color borderDark = Color(0xFF757575);
+  static const Color dividerColor = Color(0xFFE0E0E0);
+  
+  // Shadow & Overlay colors
+  static const Color shadowLight = Color(0x1A000000); // 10% black
+  static const Color shadowMedium = Color(0x33000000); // 20% black
+  static const Color overlayDark = Color(0x80000000); // 50% black
+
+  // ==================== SPACING ====================
+  static const double space4 = 4.0;
+  static const double space8 = 8.0;
+  static const double space12 = 12.0;
+  static const double space16 = 16.0;
+  static const double space20 = 20.0;
+  static const double space24 = 24.0;
+  static const double space32 = 32.0;
+  static const double space48 = 48.0;
+  static const double space64 = 64.0;
+
+  // ==================== BORDER RADIUS ====================
+  static const double radiusSmall = 8.0;
+  static const double radiusMedium = 12.0;
+  static const double radiusLarge = 16.0;
+  static const double radiusXLarge = 24.0;
+  static const double radiusCircle = 999.0;
+
+  // ==================== ELEVATIONS ====================
+  static const double elevationLow = 2.0;
+  static const double elevationMedium = 4.0;
+  static const double elevationHigh = 8.0;
+  static const double elevationXHigh = 16.0;
+
+  // ==================== TEXT STYLES (POPPINS) ====================
+  
+  // Display Styles (Hero/Landing headings)
+  static TextStyle displayLarge = GoogleFonts.poppins(
+    fontSize: 32,
+    fontWeight: FontWeight.bold,
+    color: textPrimary,
+    letterSpacing: -0.5,
+  );
+
+  static TextStyle displayMedium = GoogleFonts.poppins(
+    fontSize: 28,
+    fontWeight: FontWeight.bold,
+    color: textPrimary,
+    letterSpacing: -0.3,
+  );
+
+  // Headline Styles (Section headers)
+  static TextStyle headlineLarge = GoogleFonts.poppins(
+    fontSize: 24,
+    fontWeight: FontWeight.bold,
+    color: textPrimary,
+  );
+
+  static TextStyle headlineMedium = GoogleFonts.poppins(
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: textPrimary,
+  );
+
+  static TextStyle headingSmall = GoogleFonts.poppins(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: textPrimary,
+  );
+
+  // Title Styles (Card titles, button text)
+  static TextStyle titleLarge = GoogleFonts.poppins(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: textPrimary,
+  );
+
+  static TextStyle titleMedium = GoogleFonts.poppins(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: textPrimary,
+  );
+
+  static TextStyle titleSmall = GoogleFonts.poppins(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: textPrimary,
+  );
+
+  // Body Styles (Regular text)
+  static TextStyle bodyLarge = GoogleFonts.poppins(
+    fontSize: 16,
+    fontWeight: FontWeight.normal,
+    color: textPrimary,
+  );
+
+  static TextStyle bodyMedium = GoogleFonts.poppins(
+    fontSize: 14,
+    fontWeight: FontWeight.normal,
+    color: textPrimary,
+  );
+
+  static TextStyle bodySmall = GoogleFonts.poppins(
+    fontSize: 12,
+    fontWeight: FontWeight.normal,
+    color: textSecondary,
+  );
+
+  // Label Styles (Tags, chips, small buttons)
+  static TextStyle labelLarge = GoogleFonts.poppins(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: textPrimary,
+  );
+
+  static TextStyle labelMedium = GoogleFonts.poppins(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: textPrimary,
+  );
+
+  static TextStyle labelSmall = GoogleFonts.poppins(
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    color: textPrimary,
+  );
+
+  // Caption Style
+  static TextStyle caption = GoogleFonts.poppins(
+    fontSize: 12,
+    fontWeight: FontWeight.w300,
+    color: textHint,
+  );
+
+  // ==================== SHADOWS ====================
+  static List<BoxShadow> shadowCard = [
+    BoxShadow(
+      color: shadowMedium,
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static List<BoxShadow> shadowCardLight = [
+    BoxShadow(
+      color: shadowLight,
+      blurRadius: 6,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  static List<BoxShadow> shadowCardHeavy = [
+    BoxShadow(
+      color: shadowMedium,
+      blurRadius: 16,
+      offset: const Offset(0, 8),
+    ),
+  ];
+
+  static List<BoxShadow> shadowButton = [
+    BoxShadow(
+      color: shadowLight,
+      blurRadius: 4,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  // Legacy shadow names (keep for backward compatibility)
+  static List<BoxShadow> get cardShadow => shadowCard;
+  static List<BoxShadow> get lightShadow => shadowCardLight;
 
   // ==================== THEME DATA ====================
   
-  /// Main theme for the entire app
   static ThemeData get lightTheme {
     return ThemeData(
-      // Use Material Design 3 (latest version with better components)
       useMaterial3: true,
       
-      // Define color scheme from our colors
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryGreen,
         primary: primaryGreen,
@@ -65,53 +224,49 @@ class AppTheme {
         error: accentRed,
         background: backgroundColor,
         surface: cardBackground,
-        onPrimary: textWhite, // Text color on primary color
-        onSecondary: textWhite, // Text color on secondary color
-        onBackground: textPrimary, // Text color on background
-        onSurface: textPrimary, // Text color on cards
+        onPrimary: textWhite,
+        onSecondary: textWhite,
+        onBackground: textPrimary,
+        onSurface: textPrimary,
       ),
       
-      // Make UI adapt to screen density
       visualDensity: VisualDensity.adaptivePlatformDensity,
       
-      // Font family (you can add custom fonts later)
-      fontFamily: 'Roboto',
+      // Use Poppins as default font
+      textTheme: GoogleFonts.poppinsTextTheme(),
       
-      // ===== APP BAR THEME =====
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: primaryGreen,
         foregroundColor: textWhite,
-        elevation: 0, // Flat design
+        elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.poppins(
           color: textWhite,
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
       ),
       
-      // ===== CARD THEME =====
       cardTheme: CardThemeData(
         color: cardBackground,
         elevation: 4,
         shadowColor: Colors.black26,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radiusLarge),
         ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: space16, vertical: space8),
       ),
       
-      // ===== BUTTON THEMES =====
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryGreen,
           foregroundColor: textWhite,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(radiusMedium),
           ),
-          elevation: 4,
-          textStyle: const TextStyle(
+          elevation: elevationLow,
+          textStyle: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -122,7 +277,7 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: primaryGreen,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -135,69 +290,54 @@ class AppTheme {
           side: const BorderSide(color: primaryGreen, width: 2),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(radiusMedium),
+          ),
+          textStyle: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
       
-      // ===== FLOATING ACTION BUTTON THEME =====
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: primaryGreen,
         foregroundColor: textWhite,
         elevation: 6,
       ),
       
-      // ===== INPUT FIELD THEME =====
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.grey[200],
-        
-        // Border when not focused
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: BorderSide.none,
         ),
-        
-        // Border when enabled but not focused
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: dividerColor, width: 1),
+          borderRadius: BorderRadius.circular(radiusMedium),
+          borderSide: const BorderSide(color: borderLight, width: 1),
         ),
-        
-        // Border when focused (user is typing)
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: const BorderSide(color: secondaryGreen, width: 2),
         ),
-        
-        // Border when there's an error
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: const BorderSide(color: accentRed, width: 1),
         ),
-        
-        // Border when focused and has error
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radiusMedium),
           borderSide: const BorderSide(color: accentRed, width: 2),
         ),
-        
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        
-        // Label and hint text styling
-        labelStyle: const TextStyle(color: textSecondary),
-        hintStyle: const TextStyle(color: textHint),
+        labelStyle: GoogleFonts.poppins(color: textSecondary),
+        hintStyle: GoogleFonts.poppins(color: textHint),
       ),
       
-      // ===== ICON THEME =====
       iconTheme: const IconThemeData(
         color: primaryGreen,
         size: 24,
       ),
-
       
-      
-      // ===== DIVIDER THEME =====
       dividerTheme: const DividerThemeData(
         color: dividerColor,
         thickness: 1,
@@ -205,83 +345,4 @@ class AppTheme {
       ),
     );
   }
-
-  // ==================== TEXT STYLES ====================
-  // Custom text styles you can use throughout the app
-
-  static const TextStyle titleMedium = TextStyle(
-  fontSize: 18,
-  fontWeight: FontWeight.w600,
-  color: textPrimary,
-);
-
-  static const TextStyle titleSmall= TextStyle(
-  fontSize: 12,
-  fontWeight: FontWeight.w400,
-  color: textPrimary,
-);
-  
-  static const TextStyle headingLarge = TextStyle(
-    fontSize: 32,
-    fontWeight: FontWeight.bold,
-    color: textPrimary,
-  );
-  
-  static const TextStyle headingMedium = TextStyle(
-    fontSize: 24,
-    fontWeight: FontWeight.bold,
-    color: textPrimary,
-  );
-  
-  static const TextStyle headingSmall = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
-    color: textPrimary,
-  );
-  
-  static const TextStyle bodyLarge = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.normal,
-    color: textPrimary,
-  );
-  
-  static const TextStyle bodyMedium = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.normal,
-    color: textPrimary,
-  );
-  
-  static const TextStyle bodySmall = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.normal,
-    color: textSecondary,
-  );
-  
-  static const TextStyle caption = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.normal,
-    color: textHint,
-  );
-  
-  // ==================== CUSTOM DECORATIONS ====================
-  
-  /// Standard box shadow for cards and elevated elements
-  static List<BoxShadow> get cardShadow => [
-    BoxShadow(
-      color: Colors.black.withOpacity(0.1),
-      spreadRadius: 1,
-      blurRadius: 4,
-      offset: const Offset(0, 2),
-    ),
-  ];
-  
-  /// Subtle shadow for floating elements
-  static List<BoxShadow> get lightShadow => [
-    BoxShadow(
-      color: Colors.black.withOpacity(0.05),
-      spreadRadius: 1,
-      blurRadius: 2,
-      offset: const Offset(0, 1),
-    ),
-  ];
 }

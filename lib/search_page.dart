@@ -1,3 +1,18 @@
+// ====================================================================
+// ENHANCED SEARCH PAGE
+// UI Enhancement Phase - Modern, Clean Design with Poppins Font
+// 
+// ENHANCEMENTS:
+// - Modern search bar with enhanced styling
+// - Better business cards with improved layout
+// - Enhanced empty states (initial + no results)
+// - Improved suggestion chips
+// - Better loading indicators
+// - Enhanced results counter
+// 
+// BUSINESS LOGIC: 100% PRESERVED - NO CHANGES
+// ====================================================================
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'config/app_config.dart';
@@ -12,10 +27,10 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  // ==================== FIREBASE INSTANCES ====================
+  // ==================== FIREBASE & STATE ====================
+  // NO CHANGES - Business logic preserved
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ==================== STATE VARIABLES ====================
   final TextEditingController _searchController = TextEditingController();
   List<DocumentSnapshot> _searchResults = [];
   bool _isSearching = false;
@@ -28,6 +43,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   // ==================== SEARCH FUNCTION ====================
+  // NO CHANGES - Business logic preserved
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
@@ -85,44 +101,101 @@ class _SearchPageState extends State<SearchPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Search error: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Search error: $e',
+                  style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
           backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     }
   }
 
-  // ==================== BUILD SEARCH BAR ====================
+  // ==================== BUILD SEARCH BAR (ENHANCED) ====================
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search restaurants, cafes, carinderias...',
-          prefixIcon: Icon(Icons.search, color: AppTheme.primaryGreen),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: AppTheme.textSecondary),
-                  onPressed: () {
-                    _searchController.clear();
-                    _performSearch('');
-                  },
-                )
-              : null,
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.space16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundLight,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          border: Border.all(
+            color: AppTheme.borderLight,
+            width: 1,
+          ),
         ),
-        onChanged: (value) {
-          // Trigger search as user types (with debouncing in production)
-          _performSearch(value);
-        },
-        onSubmitted: (value) {
-          _performSearch(value);
-        },
+        child: TextField(
+          controller: _searchController,
+          style: AppTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Search restaurants, cafes, carinderias...',
+            hintStyle: AppTheme.bodyLarge.copyWith(
+              color: AppTheme.textHint,
+            ),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(AppTheme.space12),
+              child: Icon(
+                Icons.search,
+                color: AppTheme.primaryGreen,
+                size: 24,
+              ),
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(
+                      Icons.clear,
+                      color: AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _searchController.clear();
+                        _performSearch('');
+                      });
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.space16,
+              vertical: AppTheme.space16,
+            ),
+          ),
+          onChanged: (value) {
+            setState(() {}); // Update UI for clear button
+            _performSearch(value);
+          },
+          onSubmitted: (value) {
+            _performSearch(value);
+          },
+        ),
       ),
     );
   }
 
-  // ==================== BUILD BUSINESS CARD ====================
+  // ==================== BUILD BUSINESS CARD (ENHANCED) ====================
   Widget _buildBusinessCard(DocumentSnapshot business) {
     final data = business.data() as Map<String, dynamic>;
     final businessName = data['businessName'] ?? 'Unnamed Business';
@@ -130,105 +203,362 @@ class _SearchPageState extends State<SearchPage> {
     final businessAddress = data['businessAddress'] ?? 'No address';
     final logoUrl = data['logoUrl'];
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EstablishmentDetailsPage(
-                establishmentId: business.id,
-              ),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Logo
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: logoUrl != null && logoUrl.isNotEmpty
-                    ? Image.network(
-                        logoUrl,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildPlaceholderLogo();
-                        },
-                      )
-                    : _buildPlaceholderLogo(),
-              ),
-              const SizedBox(width: 12),
-
-              // Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Business Name
-                    Text(
-                      businessName,
-                      style: AppTheme.titleMedium,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Business Type
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryGreen.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        businessType,
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.primaryGreen,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Address
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: AppTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            businessAddress,
-                            style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.textSecondary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space16,
+        vertical: AppTheme.space8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EstablishmentDetailsPage(
+                  establishmentId: business.id,
                 ),
               ),
+            );
+          },
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.space12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Logo (Enhanced)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    boxShadow: AppTheme.shadowCardLight,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    child: logoUrl != null && logoUrl.isNotEmpty
+                        ? Image.network(
+                            logoUrl,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildPlaceholderLogo();
+                            },
+                          )
+                        : _buildPlaceholderLogo(),
+                  ),
+                ),
+                const SizedBox(width: AppTheme.space12),
 
-              // Arrow icon
+                // Details (Enhanced)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Business Name
+                      Text(
+                        businessName,
+                        style: AppTheme.titleMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppTheme.space8),
+
+                      // Business Type Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.space12,
+                          vertical: AppTheme.space4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                          border: Border.all(
+                            color: AppTheme.primaryGreen.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          businessType,
+                          style: AppTheme.labelSmall.copyWith(
+                            color: AppTheme.primaryGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space8),
+
+                      // Address
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
+                          const SizedBox(width: AppTheme.space4),
+                          Expanded(
+                            child: Text(
+                              businessAddress,
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: AppTheme.space8),
+
+                // Arrow Icon (Enhanced)
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.space8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.primaryGreen,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== BUILD PLACEHOLDER LOGO (ENHANCED) ====================
+  Widget _buildPlaceholderLogo() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: AppTheme.lightGreen,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      child: Icon(
+        Icons.restaurant,
+        size: 40,
+        color: AppTheme.primaryGreen.withOpacity(0.7),
+      ),
+    );
+  }
+
+  // ==================== BUILD EMPTY STATE (ENHANCED) ====================
+  Widget _buildEmptyState() {
+    if (!_hasSearched) {
+      // Initial state - no search performed yet (Enhanced)
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.space32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Search Icon Container
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space32),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.primaryGreen.withOpacity(0.3),
+                    width: 3,
+                  ),
+                ),
+                child: Icon(
+                  Icons.search,
+                  size: 80,
+                  color: AppTheme.primaryGreen.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: AppTheme.space32),
+              
+              // Title
+              Text(
+                'Search for restaurants',
+                style: AppTheme.headlineMedium.copyWith(
+                  fontSize: 24,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space12),
+              
+              // Description
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
+                child: Text(
+                  'Try searching by name, type, or location',
+                  style: AppTheme.bodyLarge.copyWith(
+                    color: AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space32),
+              
+              // Quick Search Suggestions
+              Text(
+                'Quick search suggestions:',
+                style: AppTheme.labelLarge.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space16),
+              
+              Wrap(
+                spacing: AppTheme.space12,
+                runSpacing: AppTheme.space12,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildSuggestionChip('Carinderia', Icons.restaurant),
+                  _buildSuggestionChip('Cafe', Icons.local_cafe),
+                  _buildSuggestionChip('Restaurant', Icons.dinner_dining),
+                  _buildSuggestionChip('Fast Food', Icons.fastfood),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      // No results found (Enhanced)
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.space32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // No Results Icon Container
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space32),
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.textSecondary.withOpacity(0.3),
+                    width: 3,
+                  ),
+                ),
+                child: Icon(
+                  Icons.search_off,
+                  size: 80,
+                  color: AppTheme.textSecondary.withOpacity(0.5),
+                ),
+              ),
+              const SizedBox(height: AppTheme.space32),
+              
+              // Title
+              Text(
+                'No results found',
+                style: AppTheme.headlineMedium.copyWith(
+                  fontSize: 24,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space12),
+              
+              // Description
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
+                child: Text(
+                  'Try different keywords or check your spelling',
+                  style: AppTheme.bodyLarge.copyWith(
+                    color: AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: AppTheme.space24),
+              
+              // Try Again Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchResults = [];
+                    _hasSearched = false;
+                  });
+                },
+                icon: const Icon(Icons.refresh, size: 20),
+                label: const Text('Try New Search'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryGreen,
+                  side: const BorderSide(
+                    color: AppTheme.primaryGreen,
+                    width: 1.5,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space24,
+                    vertical: AppTheme.space12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  // ==================== BUILD SUGGESTION CHIP (ENHANCED) ====================
+  Widget _buildSuggestionChip(String label, IconData icon) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+      elevation: 2,
+      child: InkWell(
+        onTap: () {
+          _searchController.text = label;
+          _performSearch(label);
+        },
+        borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.space16,
+            vertical: AppTheme.space12,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+            border: Border.all(
+              color: AppTheme.primaryGreen.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Icon(
-                Icons.chevron_right,
+                icon,
+                size: 18,
                 color: AppTheme.primaryGreen,
+              ),
+              const SizedBox(width: AppTheme.space8),
+              Text(
+                label,
+                style: AppTheme.labelLarge.copyWith(
+                  color: AppTheme.primaryGreen,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -237,124 +567,21 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  // ==================== BUILD PLACEHOLDER LOGO ====================
-  Widget _buildPlaceholderLogo() {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(
-        Icons.restaurant,
-        size: 40,
-        color: AppTheme.primaryGreen,
-      ),
-    );
-  }
-
-  // ==================== BUILD EMPTY STATE ====================
-  Widget _buildEmptyState() {
-    if (!_hasSearched) {
-      // Initial state - no search performed yet
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search,
-              size: 80,
-              color: AppTheme.primaryGreen.withOpacity(0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Search for restaurants',
-              style: AppTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'Try searching by name, type, or location',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _buildSuggestionChip('Carinderia'),
-                _buildSuggestionChip('Cafe'),
-                _buildSuggestionChip('Restaurant'),
-                _buildSuggestionChip('Fast Food'),
-              ],
-            ),
-          ],
-        ),
-      );
-    } else {
-      // No results found
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
-              size: 80,
-              color: AppTheme.textSecondary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No results found',
-              style: AppTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'Try different keywords or check your spelling',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  // ==================== BUILD SUGGESTION CHIP ====================
-  Widget _buildSuggestionChip(String label) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () {
-        _searchController.text = label;
-        _performSearch(label);
-      },
-      backgroundColor: AppTheme.surfaceColor,
-      labelStyle: AppTheme.bodyMedium.copyWith(
-        color: AppTheme.primaryGreen,
-      ),
-      side: BorderSide(
-        color: AppTheme.primaryGreen.withOpacity(0.3),
-      ),
-    );
-  }
-
-  // ==================== BUILD METHOD ====================
+  // ==================== BUILD METHOD (ENHANCED) ====================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text('Search'),
+        title: Text(
+          'Search',
+          style: AppTheme.titleLarge.copyWith(
+            color: Colors.white,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: AppTheme.primaryGreen,
+        elevation: 0,
       ),
       body: Column(
         children: [
@@ -368,13 +595,18 @@ class _SearchPageState extends State<SearchPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(
-                          color: AppTheme.primaryGreen,
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(
+                            color: AppTheme.primaryGreen,
+                            strokeWidth: 4,
+                          ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppTheme.space24),
                         Text(
                           'Searching...',
-                          style: AppTheme.bodyMedium.copyWith(
+                          style: AppTheme.bodyLarge.copyWith(
                             color: AppTheme.textSecondary,
                           ),
                         ),
@@ -386,23 +618,47 @@ class _SearchPageState extends State<SearchPage> {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Results count
-                          Padding(
+                          // Results count banner (Enhanced)
+                          Container(
+                            width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
+                              horizontal: AppTheme.space16,
+                              vertical: AppTheme.space12,
                             ),
-                            child: Text(
-                              '${_searchResults.length} result${_searchResults.length == 1 ? '' : 's'} found',
-                              style: AppTheme.bodyMedium.copyWith(
-                                color: AppTheme.textSecondary,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryGreen.withOpacity(0.1),
+                              border: const Border(
+                                bottom: BorderSide(
+                                  color: AppTheme.borderLight,
+                                  width: 1,
+                                ),
                               ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 20,
+                                  color: AppTheme.primaryGreen,
+                                ),
+                                const SizedBox(width: AppTheme.space8),
+                                Text(
+                                  '${_searchResults.length} result${_searchResults.length == 1 ? '' : 's'} found',
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    color: AppTheme.primaryGreen,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
 
                           // Results list
                           Expanded(
                             child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppTheme.space8,
+                              ),
                               itemCount: _searchResults.length,
                               itemBuilder: (context, index) {
                                 return _buildBusinessCard(_searchResults[index]);
@@ -417,3 +673,9 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 }
+
+// ====================================================================
+// END OF ENHANCED SEARCH PAGE
+// Business Logic: 100% Preserved
+// UI: Fully Enhanced with Modern Design
+// ====================================================================

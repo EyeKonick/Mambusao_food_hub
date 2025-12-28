@@ -1,3 +1,17 @@
+// ====================================================================
+// ENHANCED USER PROFILE PAGE
+// UI Enhancement Phase - Modern, Clean Design with Poppins Font
+// 
+// ENHANCEMENTS APPLIED:
+// - Modern profile header with large circular avatar
+// - Enhanced stats cards with icons and colors
+// - Improved profile info card design
+// - Menu items with modern list tiles
+// - Enhanced dialogs and snackbars
+// - Consistent spacing and typography
+// - Professional shadows and borders
+// ====================================================================
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -43,6 +57,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
     super.dispose();
   }
 
+  // ==================== DATA LOADING ====================
+  
   Future<void> _loadUserData() async {
     final user = _auth.currentUser;
     if (user == null || user.isAnonymous) return;
@@ -67,9 +83,29 @@ class _UserProfilePageState extends State<UserProfilePage> {
     }
   }
 
+  // ==================== PROFILE OPERATIONS ====================
+  
   Future<void> _saveProfile() async {
     final user = _auth.currentUser;
     if (user == null) return;
+
+    // Validation
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Name cannot be empty',
+            style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+        ),
+      );
+      return;
+    }
 
     try {
       await _firestore.collection(AppConfig.usersCollection).doc(user.uid).update({
@@ -85,16 +121,36 @@ class _UserProfilePageState extends State<UserProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Profile updated successfully!'),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Text(
+                'Profile updated successfully!',
+                style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+              ),
+            ],
+          ),
           backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error updating profile: $e'),
+          content: Text(
+            'Error updating profile: $e',
+            style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+          ),
           backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     }
@@ -166,8 +222,21 @@ class _UserProfilePageState extends State<UserProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Profile photo updated!'),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Text(
+                'Profile photo updated!',
+                style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+              ),
+            ],
+          ),
           backgroundColor: AppTheme.successGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     } catch (e) {
@@ -179,14 +248,22 @@ class _UserProfilePageState extends State<UserProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error uploading photo: $e'),
+          content: Text(
+            'Error uploading photo: $e',
+            style: AppTheme.bodyMedium.copyWith(color: Colors.white),
+          ),
           backgroundColor: AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
         ),
       );
     }
   }
 
-  // Bookmarks count stream (working correctly)
+  // ==================== STATISTICS STREAMS ====================
+  
   Stream<int> _getBookmarksCountStream() {
     final user = _auth.currentUser;
     
@@ -211,7 +288,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
         });
   }
 
-  // FIXED: Reviews count stream with comprehensive error handling
   Stream<int> _getReviewsCountStream() {
     final user = _auth.currentUser;
     
@@ -243,50 +319,82 @@ class _UserProfilePageState extends State<UserProfilePage> {
               debugPrint('   Field: userId (Ascending)');
             }
           }
+          return Stream.value(0);
         })
         .map((snapshot) {
           final count = snapshot.docs.length;
-          
           if (AppConfig.enableDebugMode) {
-            debugPrint('✓ Reviews count loaded: $count');
-            
-            if (count > 0 && snapshot.docs.isNotEmpty) {
-              final sampleReview = snapshot.docs.first.data() as Map<String, dynamic>;
-              debugPrint('   Sample review:');
-              debugPrint('     - Business: ${sampleReview['businessName'] ?? 'N/A'}');
-              debugPrint('     - Comment: ${(sampleReview['comment'] ?? 'N/A').toString().substring(0, sampleReview['comment']?.toString().length ?? 30)}');
-              debugPrint('     - Rating: ${sampleReview['rating']}');
-              debugPrint('     - User ID: ${sampleReview['userId']}');
-              debugPrint('     - Match: ${sampleReview['userId'] == user.uid ? '✓' : '✗'}');
-            } else if (count == 0) {
-              debugPrint('⚠️ No reviews found for this user');
-              debugPrint('   Possible reasons:');
-              debugPrint('   1. User hasn\'t written any reviews yet');
-              debugPrint('   2. Field name mismatch (check if \'userId\' exists in review documents)');
-              debugPrint('   3. Missing Firestore index (see error above)');
+            debugPrint('✓ Reviews count: $count documents found');
+            if (count > 0) {
+              debugPrint('   Review IDs: ${snapshot.docs.map((d) => d.id).join(", ")}');
             }
-            debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           }
-          
           return count;
         });
   }
 
+  // ==================== MAIN BUILD METHOD (ENHANCED) ====================
+  
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
 
     if (user == null || user.isAnonymous) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          title: Text(
+            'Profile',
+            style: AppTheme.titleLarge.copyWith(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.primaryGreen,
+          elevation: 0,
+        ),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.person_off, size: 64, color: AppTheme.textSecondary),
-              const SizedBox(height: 16),
-              Text('Please sign in to view profile', style: AppTheme.bodyLarge),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.space32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.account_circle_outlined,
+                  size: 100,
+                  color: AppTheme.textHint,
+                ),
+                const SizedBox(height: AppTheme.space24),
+                Text(
+                  'Sign in to view your profile',
+                  style: AppTheme.headlineMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppTheme.space12),
+                Text(
+                  'Create an account to bookmark restaurants and write reviews',
+                  style: AppTheme.bodyLarge.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppTheme.space32),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pushReplacementNamed('/');
+                  },
+                  icon: const Icon(Icons.login),
+                  label: const Text('Sign In'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -295,218 +403,267 @@ class _UserProfilePageState extends State<UserProfilePage> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: Text(
+          'My Profile',
+          style: AppTheme.titleLarge.copyWith(color: Colors.white),
+        ),
+        backgroundColor: AppTheme.primaryGreen,
+        elevation: 0,
         actions: [
           if (!_isEditing)
             IconButton(
-              icon: const Icon(Icons.edit),
-              tooltip: 'Edit Profile',
+              icon: const Icon(Icons.edit, color: Colors.white),
               onPressed: () => setState(() => _isEditing = true),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Save Changes',
-              onPressed: _saveProfile,
+              tooltip: 'Edit Profile',
             ),
         ],
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestore
+            .collection(AppConfig.usersCollection)
+            .doc(user.uid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(
                 color: AppTheme.primaryGreen,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'Menu',
-                    style: AppTheme.headingMedium.copyWith(color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.description),
-              title: const Text('Terms of Use'),
-              onTap: () {
-                Navigator.pop(context); // Close drawer
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const TermsPage()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.privacy_tip),
-              title: const Text('Privacy Policy'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PrivacyPage()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.report_problem),
-              title: const Text('Report a Problem'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ReportPage()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info),
-              title: const Text('About'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AboutPage()),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: Icon(Icons.logout, color: AppTheme.errorRed),
-              title: Text(
-                'Sign Out',
-                style: TextStyle(color: AppTheme.errorRed, fontWeight: FontWeight.w600),
-              ),
-              onTap: () async {
-                Navigator.pop(context); // Close drawer
-                final shouldSignOut = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Sign Out'),
-                    content: const Text('Are you sure you want to sign out?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.space24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppTheme.errorRed,
+                    ),
+                    const SizedBox(height: AppTheme.space16),
+                    Text(
+                      'Error loading profile',
+                      style: AppTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: AppTheme.space8),
+                    Text(
+                      'Please try again later',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.textSecondary,
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
-                        child: const Text('Sign Out'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final userData = snapshot.data?.data() as Map<String, dynamic>?;
+          final photoUrl = userData?['photoUrl'] as String?;
+
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                // Profile Header with Avatar
+                _buildProfileHeader(user, photoUrl),
+                
+                const SizedBox(height: AppTheme.space24),
+                
+                // Stats Cards
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                  child: _buildStatsCards(),
+                ),
+                
+                const SizedBox(height: AppTheme.space24),
+                
+                // Profile Information Card
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                  child: _buildProfileInfo(user),
+                ),
+                
+                const SizedBox(height: AppTheme.space24),
+                
+                // Menu Items
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                  child: _buildMenuItems(),
+                ),
+                
+                const SizedBox(height: AppTheme.space24),
+                
+                // Sign Out Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
+                  child: _buildSignOutButton(),
+                ),
+                
+                const SizedBox(height: AppTheme.space32),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==================== PROFILE HEADER (ENHANCED) ====================
+  
+  Widget _buildProfileHeader(User user, String? photoUrl) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreen,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(AppTheme.radiusXLarge),
+          bottomRight: Radius.circular(AppTheme.radiusXLarge),
+        ),
+        boxShadow: AppTheme.shadowCard,
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: AppTheme.space24),
+          
+          // Avatar with Camera Button
+          Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.white,
+                  backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                      ? NetworkImage(photoUrl)
+                      : null,
+                  child: photoUrl == null || photoUrl.isEmpty
+                      ? Text(
+                          user.displayName?.isNotEmpty == true
+                              ? user.displayName![0].toUpperCase()
+                              : user.email![0].toUpperCase(),
+                          style: AppTheme.displayLarge.copyWith(
+                            color: AppTheme.primaryGreen,
+                            fontSize: 48,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+              
+              // Camera button
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                );
-
-                if (shouldSignOut == true) {
-                  await _auth.signOut();
-                  if (!mounted) return;
-                  Navigator.of(context).pushReplacementNamed('/');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildProfileHeader(user),
-            const SizedBox(height: 24),
-            _buildStatsCards(),
-            const SizedBox(height: 24),
-            _buildProfileInfo(user),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileHeader(User user) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                StreamBuilder<DocumentSnapshot>(
-                  stream: _firestore
-                      .collection(AppConfig.usersCollection)
-                      .doc(user.uid)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    final photoUrl = snapshot.data?.get('photoUrl') as String?;
-                    
-                    return CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppTheme.primaryGreen.withOpacity(0.2),
-                      backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                      child: photoUrl == null
-                          ? Icon(Icons.person, size: 50, color: AppTheme.primaryGreen)
-                          : null,
-                    );
-                  },
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _isUploading ? null : _uploadProfilePhoto,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTheme.space8),
+                        child: _isUploading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppTheme.primaryGreen,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.camera_alt,
+                                color: AppTheme.primaryGreen,
+                                size: 24,
+                              ),
+                      ),
+                    ),
+                  ),
                 ),
-                if (!_isUploading)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppTheme.primaryGreen,
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt, size: 18),
-                        color: Colors.white,
-                        padding: EdgeInsets.zero,
-                        onPressed: _uploadProfilePhoto,
-                      ),
-                    ),
-                  ),
-                if (_isUploading)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            if (_uploadProgress != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _uploadProgress!,
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
               ),
             ],
-            const SizedBox(height: 16),
-            Text(
-              user.displayName ?? 'User',
-              style: AppTheme.headingMedium,
+          ),
+          
+          const SizedBox(height: AppTheme.space16),
+          
+          // User Name
+          Text(
+            user.displayName ?? 'User',
+            style: AppTheme.headlineMedium.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 4),
-            Text(
-              user.email ?? '',
-              style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
+          ),
+          
+          const SizedBox(height: AppTheme.space4),
+          
+          // User Email
+          Text(
+            user.email ?? '',
+            style: AppTheme.bodyMedium.copyWith(
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          
+          // Upload Progress
+          if (_isUploading && _uploadProgress != null) ...[
+            const SizedBox(height: AppTheme.space12),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.space16,
+                vertical: AppTheme.space8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+              ),
+              child: Text(
+                _uploadProgress!,
+                style: AppTheme.bodySmall.copyWith(
+                  color: Colors.white,
+                ),
+              ),
             ),
           ],
-        ),
+          
+          const SizedBox(height: AppTheme.space32),
+        ],
       ),
     );
   }
 
+  // ==================== STATS CARDS (ENHANCED) ====================
+  
   Widget _buildStatsCards() {
     return Row(
       children: [
@@ -519,14 +676,29 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 MaterialPageRoute(builder: (context) => const BookmarksPage()),
               );
             },
-            child: Card(
-              elevation: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: AppTheme.shadowCardLight,
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppTheme.space20),
                 child: Column(
                   children: [
-                    Icon(Icons.bookmark, size: 32, color: AppTheme.primaryGreen),
-                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryGreen.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.bookmark,
+                        size: 32,
+                        color: AppTheme.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
                     StreamBuilder<int>(
                       stream: _getBookmarksCountStream(),
                       builder: (context, snapshot) {
@@ -534,73 +706,111 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           return const SizedBox(
                             width: 24,
                             height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.primaryGreen,
+                              ),
+                            ),
                           );
                         }
                         
                         return Text(
                           '${snapshot.data ?? 0}',
-                          style: AppTheme.headingMedium.copyWith(
+                          style: AppTheme.headlineLarge.copyWith(
                             color: AppTheme.primaryGreen,
+                            fontWeight: FontWeight.bold,
                           ),
                         );
                       },
                     ),
-                    Text('Bookmarks', style: AppTheme.bodySmall),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(
+                      'Bookmarks',
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 16),
+        
+        const SizedBox(width: AppTheme.space16),
         
         // Reviews Card
         Expanded(
-          child: Card(
-            elevation: 2,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              boxShadow: AppTheme.shadowCardLight,
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.space20),
               child: Column(
                 children: [
-                  Icon(Icons.rate_review, size: 32, color: AppTheme.accentYellow),
-                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.space12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentYellow.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.rate_review,
+                      size: 32,
+                      color: AppTheme.accentYellow,
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space12),
                   StreamBuilder<int>(
                     stream: _getReviewsCountStream(),
                     builder: (context, snapshot) {
-                      // Show loading indicator while fetching
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const SizedBox(
                           width: 24,
                           height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.accentYellow,
+                            ),
+                          ),
                         );
                       }
                       
-                      // Show error state (but display 0 to user)
                       if (snapshot.hasError) {
                         if (AppConfig.enableDebugMode) {
                           debugPrint('❌ StreamBuilder error: ${snapshot.error}');
                         }
                         return Text(
                           '0',
-                          style: AppTheme.headingMedium.copyWith(
+                          style: AppTheme.headlineLarge.copyWith(
                             color: AppTheme.accentYellow,
+                            fontWeight: FontWeight.bold,
                           ),
                         );
                       }
                       
-                      // Show the actual count
                       final count = snapshot.data ?? 0;
                       return Text(
                         '$count',
-                        style: AppTheme.headingMedium.copyWith(
+                        style: AppTheme.headlineLarge.copyWith(
                           color: AppTheme.accentYellow,
+                          fontWeight: FontWeight.bold,
                         ),
                       );
                     },
                   ),
-                  Text('Reviews', style: AppTheme.bodySmall),
+                  const SizedBox(height: AppTheme.space4),
+                  Text(
+                    'Reviews',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -610,73 +820,172 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
   }
 
+  // ==================== PROFILE INFO CARD (ENHANCED) ====================
+  
   Widget _buildProfileInfo(User user) {
-    return Card(
-      elevation: 4,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppTheme.space20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Profile Information',
-              style: AppTheme.titleMedium.copyWith(color: AppTheme.primaryGreen),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.space8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: AppTheme.primaryGreen,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: AppTheme.space12),
+                Text(
+                  'Profile Information',
+                  style: AppTheme.titleLarge.copyWith(
+                    color: AppTheme.primaryGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            const Divider(height: 24),
+            
+            const SizedBox(height: AppTheme.space20),
+            const Divider(height: 1),
+            const SizedBox(height: AppTheme.space20),
             
             // Name Field
-            Text('Full Name', style: AppTheme.titleSmall),
-            const SizedBox(height: 8),
+            Text(
+              'Full Name',
+              style: AppTheme.labelLarge.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppTheme.space8),
             TextField(
               controller: _nameController,
               enabled: _isEditing,
+              style: AppTheme.bodyLarge,
               decoration: InputDecoration(
                 hintText: 'Enter your name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                hintStyle: AppTheme.bodyLarge.copyWith(
+                  color: AppTheme.textHint,
                 ),
-                filled: !_isEditing,
-                fillColor: _isEditing ? null : Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(
+                    color: AppTheme.primaryGreen,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: _isEditing ? Colors.white : AppTheme.backgroundLight,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.space16,
+                  vertical: AppTheme.space16,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            
+            const SizedBox(height: AppTheme.space20),
             
             // Email Field (Read-only)
-            Text('Email Address', style: AppTheme.titleSmall),
-            const SizedBox(height: 8),
+            Text(
+              'Email Address',
+              style: AppTheme.labelLarge.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppTheme.space8),
             TextField(
               controller: TextEditingController(text: user.email),
               enabled: false,
+              style: AppTheme.bodyLarge.copyWith(
+                color: AppTheme.textSecondary,
+              ),
               decoration: InputDecoration(
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
                 ),
                 filled: true,
-                fillColor: Colors.grey.shade100,
-                suffixIcon: const Icon(Icons.lock_outline, size: 20),
+                fillColor: AppTheme.backgroundLight,
+                suffixIcon: const Icon(
+                  Icons.lock_outline,
+                  size: 20,
+                  color: AppTheme.textHint,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.space16,
+                  vertical: AppTheme.space16,
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            
+            const SizedBox(height: AppTheme.space20),
             
             // Phone Field
-            Text('Phone Number', style: AppTheme.titleSmall),
-            const SizedBox(height: 8),
+            Text(
+              'Phone Number',
+              style: AppTheme.labelLarge.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppTheme.space8),
             TextField(
               controller: _phoneController,
               enabled: _isEditing,
               keyboardType: TextInputType.phone,
+              style: AppTheme.bodyLarge,
               decoration: InputDecoration(
                 hintText: 'Enter your phone number',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                hintStyle: AppTheme.bodyLarge.copyWith(
+                  color: AppTheme.textHint,
                 ),
-                filled: !_isEditing,
-                fillColor: _isEditing ? null : Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(color: AppTheme.borderLight),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(
+                    color: AppTheme.primaryGreen,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: _isEditing ? Colors.white : AppTheme.backgroundLight,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.space16,
+                  vertical: AppTheme.space16,
+                ),
               ),
             ),
             
+            // Action Buttons (when editing)
             if (_isEditing) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: AppTheme.space24),
               Row(
                 children: [
                   Expanded(
@@ -685,14 +994,49 @@ class _UserProfilePageState extends State<UserProfilePage> {
                         setState(() => _isEditing = false);
                         _loadUserData();
                       },
-                      child: const Text('Cancel'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textSecondary,
+                        side: const BorderSide(
+                          color: AppTheme.borderMedium,
+                          width: 1.5,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppTheme.space16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: AppTheme.labelLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppTheme.space12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _saveProfile,
-                      child: const Text('Save Changes'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppTheme.space16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Save Changes',
+                        style: AppTheme.labelLarge.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -704,42 +1048,297 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
   }
 
-  Widget _buildSignOutButton() {
-    return Card(
-      elevation: 2,
-      child: ListTile(
-        leading: Icon(Icons.logout, color: AppTheme.errorRed),
-        title: Text(
-          'Sign Out',
-          style: TextStyle(color: AppTheme.errorRed, fontWeight: FontWeight.w600),
+  // ==================== MENU ITEMS (ENHANCED) ====================
+  
+  Widget _buildMenuItems() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCard,
+      ),
+      child: Column(
+        children: [
+          _buildMenuItem(
+            icon: Icons.bookmark,
+            iconColor: AppTheme.primaryGreen,
+            title: 'My Bookmarks',
+            subtitle: 'View saved restaurants',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BookmarksPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 68, endIndent: 16),
+          
+          _buildMenuItem(
+            icon: Icons.description_outlined,
+            iconColor: AppTheme.accentBlue,
+            title: 'Terms of Use',
+            subtitle: 'Read our terms',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TermsPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 68, endIndent: 16),
+          
+          _buildMenuItem(
+            icon: Icons.privacy_tip_outlined,
+            iconColor: AppTheme.accentYellow,
+            title: 'Privacy Policy',
+            subtitle: 'How we protect your data',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PrivacyPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 68, endIndent: 16),
+          
+          _buildMenuItem(
+            icon: Icons.report_problem_outlined,
+            iconColor: AppTheme.warningOrange,
+            title: 'Report a Problem',
+            subtitle: 'Get help with issues',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ReportPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 68, endIndent: 16),
+          
+          _buildMenuItem(
+            icon: Icons.info_outline,
+            iconColor: AppTheme.accentBlue,
+            title: 'About MamFood Hub',
+            subtitle: 'Learn more about us',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AboutPage()),
+              );
+            },
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isLast = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(isLast ? 0 : AppTheme.radiusLarge),
+          bottom: Radius.circular(isLast ? AppTheme.radiusLarge : 0),
         ),
-        trailing: Icon(Icons.chevron_right, color: AppTheme.errorRed),
-        onTap: () async {
-          final shouldSignOut = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Sign Out'),
-              content: const Text('Are you sure you want to sign out?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.space16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.space12),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
-                  child: const Text('Sign Out'),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppTheme.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTheme.titleMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space4),
+                    Text(
+                      subtitle,
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppTheme.textHint,
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== SIGN OUT BUTTON (ENHANCED) ====================
+  
+  Widget _buildSignOutButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.shadowCardLight,
+        border: Border.all(
+          color: AppTheme.errorRed.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            final shouldSignOut = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
+                      child: const Icon(
+                        Icons.logout,
+                        color: AppTheme.errorRed,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space12),
+                    Text(
+                      'Sign Out',
+                      style: AppTheme.headlineMedium,
+                    ),
+                  ],
+                ),
+                content: Text(
+                  'Are you sure you want to sign out?',
+                  style: AppTheme.bodyLarge,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.textSecondary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: AppTheme.labelLarge,
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.errorRed,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      ),
+                    ),
+                    child: Text(
+                      'Sign Out',
+                      style: AppTheme.labelLarge.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            if (shouldSignOut == true) {
+              await _auth.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pushReplacementNamed('/');
+            }
+          },
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.space16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.space12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorRed.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: const Icon(
+                    Icons.logout,
+                    color: AppTheme.errorRed,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: AppTheme.space16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sign Out',
+                        style: AppTheme.titleMedium.copyWith(
+                          color: AppTheme.errorRed,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.space4),
+                      Text(
+                        'Sign out of your account',
+                        style: AppTheme.bodySmall.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppTheme.errorRed,
+                  size: 24,
                 ),
               ],
             ),
-          );
-
-          if (shouldSignOut == true) {
-            await _auth.signOut();
-            if (!mounted) return;
-            Navigator.of(context).pushReplacementNamed('/');
-          }
-        },
+          ),
+        ),
       ),
     );
   }

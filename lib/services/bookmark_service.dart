@@ -46,6 +46,23 @@ class BookmarkService {
         .map((snapshot) => snapshot.docs.isNotEmpty);
   }
 
+  /// Get a stream of bookmark status for a specific establishment
+  Stream<bool> isBookmarkedStream(String businessId) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null || user.isAnonymous) {
+      return Stream.value(false);
+    }
+
+    return _firestore
+        .collection(AppConfig.usersCollection)
+        .doc(user.uid)
+        .collection(AppConfig.bookmarksSubcollection)
+        .doc(businessId)
+        .snapshots()
+        .map((snapshot) => snapshot.exists);
+  }
+
   // Add bookmark
   Future<bool> addBookmark({
     required String businessId,

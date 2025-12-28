@@ -107,8 +107,8 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
               Polyline(
                 polylineId: const PolylineId('route'),
                 points: polylinePoints,
-                color: AppTheme.accentBlue,
-                width: 5,
+                color: AppTheme.primaryGreen,
+                width: 6,
               ),
             };
             _isLoadingRoute = false;
@@ -219,8 +219,18 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error opening Google Maps: $e'),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Error opening Google Maps: $e')),
+              ],
+            ),
             backgroundColor: AppTheme.errorRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
           ),
         );
       }
@@ -231,13 +241,13 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Text(
           'Directions to ${widget.businessName}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Stack(
         children: [
@@ -264,25 +274,43 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
           // Loading Overlay
           if (_isLoadingRoute)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withOpacity(0.5),
               child: Center(
-                child: Card(
-                  margin: const EdgeInsets.all(20),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(
+                child: Container(
+                  margin: const EdgeInsets.all(AppTheme.space32),
+                  padding: const EdgeInsets.all(AppTheme.space32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    boxShadow: AppTheme.shadowCardHeavy,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
                           color: AppTheme.primaryGreen,
+                          strokeWidth: 4,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Calculating route...',
-                          style: AppTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppTheme.space24),
+                      Text(
+                        'Calculating route...',
+                        style: AppTheme.titleLarge.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: AppTheme.space8),
+                      Text(
+                        'Please wait while we find the best path',
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -291,29 +319,45 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
           // Error Message
           if (_errorMessage != null && !_isLoadingRoute)
             Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Card(
-                color: AppTheme.errorRed,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.white),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(color: Colors.white),
+              top: AppTheme.space16,
+              left: AppTheme.space16,
+              right: AppTheme.space16,
+              child: Container(
+                padding: const EdgeInsets.all(AppTheme.space16),
+                decoration: BoxDecoration(
+                  color: AppTheme.errorRed,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.shadowCard,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.space8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.space12),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => setState(() => _errorMessage = null),
-                      ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => setState(() => _errorMessage = null),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -321,16 +365,17 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
           // Distance & Duration Info Card
           if (!_isLoadingRoute && _errorMessage == null && _distance.isNotEmpty)
             Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              top: AppTheme.space16,
+              left: AppTheme.space16,
+              right: AppTheme.space16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.shadowCardHeavy,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppTheme.space20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -338,74 +383,83 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(AppTheme.space12),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryGreen.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.straighten,
                               color: AppTheme.primaryGreen,
-                              size: 24,
+                              size: 28,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Distance',
-                                style: AppTheme.bodySmall.copyWith(
-                                  color: AppTheme.textSecondary,
+                          const SizedBox(width: AppTheme.space16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Distance',
+                                  style: AppTheme.labelMedium.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                _distance,
-                                style: AppTheme.titleMedium.copyWith(
-                                  color: AppTheme.primaryGreen,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 4),
+                                Text(
+                                  _distance,
+                                  style: AppTheme.headlineMedium.copyWith(
+                                    color: AppTheme.primaryGreen,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
                       
-                      const Divider(height: 20),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppTheme.space12),
+                        child: Divider(height: 1),
+                      ),
                       
                       // Duration
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(AppTheme.space12),
                             decoration: BoxDecoration(
                               color: AppTheme.accentBlue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.access_time,
                               color: AppTheme.accentBlue,
-                              size: 24,
+                              size: 28,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Estimated Time',
-                                style: AppTheme.bodySmall.copyWith(
-                                  color: AppTheme.textSecondary,
+                          const SizedBox(width: AppTheme.space16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Estimated Time',
+                                  style: AppTheme.labelMedium.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                _duration,
-                                style: AppTheme.titleMedium.copyWith(
-                                  color: AppTheme.accentBlue,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 4),
+                                Text(
+                                  _duration,
+                                  style: AppTheme.headlineMedium.copyWith(
+                                    color: AppTheme.accentBlue,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -418,27 +472,35 @@ class _BusinessRouteMapPageState extends State<BusinessRouteMapPage> {
           // "Open in Google Maps" Button
           if (!_isLoadingRoute && _errorMessage == null)
             Positioned(
-              bottom: 24,
-              left: 16,
-              right: 16,
-              child: ElevatedButton.icon(
-                onPressed: _openInGoogleMaps,
-                icon: const Icon(Icons.map, size: 24),
-                label: const Text(
-                  'Open in Google Maps',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+              bottom: AppTheme.space24,
+              left: AppTheme.space16,
+              right: AppTheme.space16,
+              child: Container(
+                decoration: BoxDecoration(
+                  boxShadow: AppTheme.shadowCardHeavy,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                child: ElevatedButton.icon(
+                  onPressed: _openInGoogleMaps,
+                  icon: const Icon(Icons.map, size: 24),
+                  label: const Text(
+                    'Open in Google Maps',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  elevation: 8,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppTheme.space20,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    ),
+                    elevation: 0,
+                  ),
                 ),
               ),
             ),

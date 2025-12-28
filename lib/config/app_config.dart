@@ -92,6 +92,7 @@ class AppConfig {
 
   static const String menuItemsSubcollection = 'menuItems';
   static const String reviewsSubcollection = 'reviews';
+  static const String photosSubcollection = 'photos';
   static const String bookmarksSubcollection = 'bookmarks';
   
   // ==================== HELPER METHODS ====================
