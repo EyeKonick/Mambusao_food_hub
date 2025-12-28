@@ -27,14 +27,23 @@ class AppConfig {
   static const String cloudinaryUploadPreset = 'mamfoodhub_unsigned';
   
   // Cloudinary folders for organizing uploads
-  static const String cloudinaryEstablishmentLogoFolder = 'mamfoodhub_images'; // ← ADDED
+  static const String cloudinaryEstablishmentLogoFolder = 'mamfoodhub_images';
   static const String cloudinaryEstablishmentFolder = 'mamfoodhub_images';
   static const String cloudinaryMenuItemFolder = 'mamfoodhub_images';
+  static const String cloudinaryCoverImageFolder = 'mamfoodhub_cover_images';
   
   // Build the full API URL
   static const String cloudinaryApiUrl = 
       'https://api.cloudinary.com/v1_1/$cloudinaryCloudName/image/upload';
 
+  // ==================== GOOGLE MAPS CONFIG ====================
+  /// NEW API KEY from mamfoodhub project (December 2024)
+  static const String googleMapsApiKey = 'AIzaSyByu-bZHN1fDm7o7aVPBZ4LQM_zRcn5pbo';
+  
+  // Google Directions API endpoint
+  static const String googleDirectionsApiUrl = 
+      'https://maps.googleapis.com/maps/api/directions/json';
+  
   // ==================== FEATURE FLAGS ====================
   // These control what features are available in the app
   
@@ -78,6 +87,7 @@ class AppConfig {
   static const String menuItemsCollection = 'menuItems';
   static const String reviewsCollection = 'reviews';
   static const String usersCollection = 'users';
+  static const String adminsCollection = 'admins';
   static const String bookmarksCollection = 'bookmarks';
 
   static const String menuItemsSubcollection = 'menuItems';
@@ -101,4 +111,19 @@ class AppConfig {
   static bool isValidRating(double rating) {
     return rating >= minRating && rating <= maxRating;
   }
+
+  // ==================== BUSINESS TYPES ====================
+  /// All available business type categories
+  static const List<String> businessTypes = [
+    'Fast Food',
+    'Cafe',
+    'Tea & Coffee Shop',
+    'Bakery',
+    'Restaurant',
+    'Carinderia',
+    'Street Food',
+    'Dessert',
+    'Bar',
+    'Other',
+  ];
 }

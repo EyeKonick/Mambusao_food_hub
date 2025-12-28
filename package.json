@@ -1,0 +1,27 @@
+{
+  "name": "mambusao_food_hub",
+  "version": "1.0.0",
+  "description": "A new Flutter project.",
+  "main": "delete-users.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EyeKonick/Mambusao_food_hub.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EyeKonick/Mambusao_food_hub/issues"
+  },
+  "homepage": "https://github.com/EyeKonick/Mambusao_food_hub#readme",
+  "dependencies": {
+    "firebase-admin": "^13.6.0"
+  }
+}

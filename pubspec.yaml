@@ -20,6 +20,7 @@ dependencies:
 
   # Maps integration
   google_maps_flutter: ^2.6.0
+  url_launcher: ^6.2.1
 
   # Core Firebase packages (using existing versions)
   firebase_core: ^4.1.0

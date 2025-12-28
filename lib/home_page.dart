@@ -9,6 +9,7 @@ import 'establishment_details_page.dart';
 import 'user_auth_page.dart';
 import 'user_profile_page.dart';
 import 'services/bookmark_service.dart';
+import 'models/filter_state.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,6 +28,8 @@ class _HomePageState extends State<HomePage> {
   bool _isLoadingLocation = false;
   String? _locationError;
   String _selectedCategory = 'All';
+  FilterState _filterState = const FilterState();
+  Map<String, double> _businessAvgRatingCache = {};
 
   // Categories for filtering
   final List<String> _categories = [
@@ -48,68 +51,92 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ==================== BOOKMARK HANDLING ====================
-  Future<void> _handleBookmarkTap(
-    String businessId,
-    String businessName,
-    String businessType,
-  ) async {
-    final user = FirebaseAuth.instance.currentUser;
+  // ==================== BOOKMARK HANDLING ====================
+Future<void> _handleBookmarkTap(
+  String businessId,
+  String businessName,
+  String businessType,
+) async {
+  final user = FirebaseAuth.instance.currentUser;
 
-    if (user == null || user.isAnonymous) {
-      if (!mounted) return;
-      
-      final shouldSignIn = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Sign In Required'),
-          content: const Text(
-            'You need to create an account or sign in to bookmark restaurants.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sign In'),
-            ),
-          ],
+  if (user == null || user.isAnonymous) {
+    if (!mounted) return;
+    
+    final shouldSignIn = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign In Required'),
+        content: const Text(
+          'You need to create an account or sign in to bookmark restaurants.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSignIn == true && mounted) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const UserAuthPage()),
       );
 
-      if (shouldSignIn == true && mounted) {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UserAuthPage()),
-        );
-
-        if (result == true && mounted) {
-          await _handleBookmarkTap(businessId, businessName, businessType);
-        }
+      if (result == true && mounted) {
+        await _handleBookmarkTap(businessId, businessName, businessType);
       }
-      return;
     }
+    return;
+  }
 
-    final success = await _bookmarkService.toggleBookmark(
+  // Check if already bookmarked
+  final isCurrentlyBookmarked = await _bookmarkService.isBookmarked(businessId);
+
+  if (isCurrentlyBookmarked) {
+    // Already bookmarked - just remove it
+    final success = await _bookmarkService.removeBookmark(businessId);
+    
+    if (!mounted) return;
+    
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Removed from bookmarks'),
+          backgroundColor: AppTheme.textSecondary,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  } else {
+    // Not bookmarked - show label selection dialog
+    final label = await _showLabelSelectionDialog();
+    
+    if (label == null && !mounted) return; // User cancelled
+    
+    final success = await _bookmarkService.addBookmark(
       businessId: businessId,
       businessName: businessName,
       businessType: businessType,
+      label: label?.isEmpty ?? true ? null : label,
     );
 
     if (!mounted) return;
 
     if (success) {
-      final isBookmarked = await _bookmarkService.isBookmarked(businessId);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isBookmarked
-                ? '✓ Added to bookmarks'
-                : 'Removed from bookmarks',
+            label != null && label.isNotEmpty
+                ? '✓ Added to "$label"'
+                : '✓ Added to bookmarks',
           ),
-          backgroundColor:
-              isBookmarked ? AppTheme.successGreen : AppTheme.textSecondary,
+          backgroundColor: AppTheme.successGreen,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -122,7 +149,59 @@ class _HomePageState extends State<HomePage> {
       );
     }
   }
+}
 
+// ==================== LABEL SELECTION DIALOG ====================
+Future<String?> _showLabelSelectionDialog() async {
+  final labelColors = {
+    'Want to Try': AppTheme.accentYellow,
+    'Favorites': AppTheme.errorRed,
+    'Date Night': Colors.pink,
+    'Good for Groups': AppTheme.accentBlue,
+  };
+
+  return await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Add Label (Optional)'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Predefined labels
+            ...labelColors.keys.map((label) => ListTile(
+              leading: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: labelColors[label],
+                  shape: BoxShape.circle,
+                ),
+              ),
+              title: Text(label),
+              onTap: () => Navigator.pop(context, label),
+            )),
+            
+            const Divider(),
+            
+            // No label option
+            ListTile(
+              leading: const Icon(Icons.bookmark_border, color: AppTheme.textSecondary),
+              title: const Text('No Label'),
+              onTap: () => Navigator.pop(context, ''),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+}
   // ==================== ACCOUNT NAVIGATION ====================
   Future<void> _handleAccountNavigation() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -205,6 +284,88 @@ class _HomePageState extends State<HomePage> {
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000;
+  }
+
+  // ==================== APPLY ADVANCED FILTERS ====================
+  List<DocumentSnapshot> _applyAdvancedFilters(List<DocumentSnapshot> businesses) {
+    if (!_filterState.hasActiveFilters) {
+      return businesses;
+    }
+
+    return businesses.where((business) {
+      final data = business.data() as Map<String, dynamic>;
+
+      // Category filter (multi-select)
+      if (_filterState.selectedCategories.isNotEmpty) {
+        final businessType = data['businessType'] as String?;
+        if (businessType == null || !_filterState.selectedCategories.contains(businessType)) {
+          return false;
+        }
+      }
+
+      // Apply rating filter (using stored avgRating)
+      if (_filterState.minRating != null) {
+        final businessId = business.id;
+        final avgRating = data['avgRating'] as double? ?? 0.0;
+        
+        // Cache the rating for quick lookups
+        _businessAvgRatingCache[businessId] = avgRating;
+        
+        if (avgRating < _filterState.minRating!) {
+          return false;
+        }
+      }
+
+      // Distance filter
+      if (_filterState.maxDistance != null && _currentPosition != null) {
+        final lat = data['latitude'] as double?;
+        final lon = data['longitude'] as double?;
+
+        if (lat != null && lon != null) {
+          final distance = _calculateDistance(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            lat,
+            lon,
+          );
+
+          if (distance > _filterState.maxDistance!) {
+            return false;
+          }
+        } else {
+          // Exclude businesses without location when distance filter is active
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+  }
+
+  // ==================== SHOW FILTER MODAL ====================
+  void _showFilterModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _FilterModal(
+        filterState: _filterState,
+        hasLocation: _currentPosition != null,
+        onApply: (newFilterState) {
+          setState(() {
+            _filterState = newFilterState;
+          });
+        },
+      ),
+    );
+  }
+
+  // ==================== CLEAR ALL FILTERS ====================
+  void _clearAllFilters() {
+    setState(() {
+      _filterState = const FilterState();
+      _selectedCategory = 'All';
+    });
   }
 
   // ==================== BUILD PROMOTIONS SECTION ====================
@@ -596,121 +757,147 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ==================== BUILD ESTABLISHMENTS LIST ====================
-  Widget _buildEstablishmentsList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection(AppConfig.businessesCollection)
-          .where('approvalStatus', isEqualTo: 'approved')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: AppTheme.errorRed,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading restaurants',
-                  style: AppTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    snapshot.error.toString(),
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: AppTheme.primaryGreen),
-                const SizedBox(height: 16),
-                Text(
-                  'Loading restaurants...',
-                  style: AppTheme.bodyMedium.copyWith(
+Widget _buildEstablishmentsList() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: _firestore
+        .collection(AppConfig.businessesCollection)
+        .where('approvalStatus', isEqualTo: 'approved')
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: AppTheme.errorRed,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading restaurants',
+                style: AppTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  snapshot.error.toString(),
+                  style: AppTheme.bodySmall.copyWith(
                     color: AppTheme.textSecondary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-              ],
-            ),
-          );
-        }
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {});
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      }
 
-        var businesses = snapshot.data!.docs;
-        if (_selectedCategory != 'All') {
-          businesses = businesses.where((business) {
-            final data = business.data() as Map<String, dynamic>;
-            return data['businessType'] == _selectedCategory;
-          }).toList();
-        }
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppTheme.primaryGreen),
+              const SizedBox(height: 16),
+              Text(
+                'Loading restaurants...',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
 
-        if (businesses.isEmpty) {
-          return Center(
+      var businesses = snapshot.data!.docs;
+
+      // Apply category filter from category chips
+      if (_selectedCategory != 'All') {
+        businesses = businesses.where((business) {
+          final data = business.data() as Map<String, dynamic>;
+          return data['businessType'] == _selectedCategory;
+        }).toList();
+      }
+
+      // Apply advanced filters (rating, distance, multi-category)
+      // Convert to List<DocumentSnapshot> for filtering, then back
+      businesses = _applyAdvancedFilters(businesses.cast<DocumentSnapshot>()).cast<QueryDocumentSnapshot>();
+
+      if (businesses.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.restaurant_menu,
-                  size: 64,
-                  color: AppTheme.primaryGreen.withOpacity(0.5),
+                  size: 80,
+                  color: AppTheme.primaryGreen.withOpacity(0.3),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text(
-                  _selectedCategory == 'All'
-                      ? 'No restaurants found'
-                      : 'No $_selectedCategory found',
+                  _filterState.hasActiveFilters
+                      ? 'No restaurants match your filters'
+                      : (_selectedCategory == 'All'
+                          ? 'No restaurants found'
+                          : 'No $_selectedCategory found'),
                   style: AppTheme.titleMedium,
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
-                  'Check back later for new businesses',
+                  _filterState.hasActiveFilters
+                      ? 'Try adjusting your filters to see more results'
+                      : 'Check back later for new businesses',
                   style: AppTheme.bodySmall.copyWith(
                     color: AppTheme.textSecondary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
+                if (_filterState.hasActiveFilters) ...[
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: _clearAllFilters,
+                    icon: const Icon(Icons.clear_all),
+                    label: const Text('Clear Filters'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGreen,
+                    ),
+                  ),
+                ],
               ],
             ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async {
-            setState(() {});
-          },
-          child: ListView.builder(
-            itemCount: businesses.length,
-            itemBuilder: (context, index) {
-              return _buildEstablishmentCard(businesses[index]);
-            },
           ),
         );
-      },
-    );
-  }
+      }
+
+      return RefreshIndicator(
+        onRefresh: () async {
+          setState(() {});
+        },
+        child: ListView.builder(
+          itemCount: businesses.length,
+          itemBuilder: (context, index) {
+            return _buildEstablishmentCard(businesses[index]);
+          },
+        ),
+      );
+    },
+  );
+}
 
   // ==================== BUILD LOCATION BANNER ====================
   Widget _buildLocationBanner() {
@@ -823,10 +1010,46 @@ class _HomePageState extends State<HomePage> {
             },
           ),
           
+          // Filter button with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                tooltip: 'Filter',
+                onPressed: _showFilterModal,
+              ),
+              if (_filterState.hasActiveFilters)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.errorRed,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '${_filterState.activeFilterCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          
           IconButton(
             icon: const Icon(Icons.account_circle),
             tooltip: 'Account',
-            onPressed: () => _handleAccountNavigation(),
+            onPressed: _handleAccountNavigation,
           ),
         ],
       ),
@@ -884,6 +1107,293 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ==================== FILTER MODAL WIDGET ====================
+class _FilterModal extends StatefulWidget {
+  final FilterState filterState;
+  final bool hasLocation;
+  final Function(FilterState) onApply;
+
+  const _FilterModal({
+    required this.filterState,
+    required this.hasLocation,
+    required this.onApply,
+  });
+
+  @override
+  State<_FilterModal> createState() => _FilterModalState();
+}
+
+class _FilterModalState extends State<_FilterModal> {
+  late FilterState _filterState;
+
+  final List<String> _categories = [
+    'Tea & Coffee Shop',
+    'Bakery',
+    'Carinderia',
+    'Pizzeria',
+    'Casual Dining',
+    'Fast Food',
+    'Noodle & Soup Spot',
+    'Food Stall',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _filterState = widget.filterState;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.filter_list, color: Colors.white),
+                const SizedBox(width: 12),
+                const Text(
+                  'Filter Restaurants',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                if (_filterState.hasActiveFilters)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _filterState = const FilterState();
+                      });
+                    },
+                    child: const Text(
+                      'Clear All',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Filter Options
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Categories Section
+                  _buildSectionTitle('Categories', Icons.category),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _categories.map((category) {
+                      final isSelected = _filterState.selectedCategories.contains(category);
+                      return FilterChip(
+                        label: Text(category),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            final newCategories = List<String>.from(_filterState.selectedCategories);
+                            if (selected) {
+                              if (!newCategories.contains(category)) {
+                                newCategories.add(category);
+                              }
+                            } else {
+                              newCategories.remove(category);
+                            }
+                            _filterState = _filterState.copyWith(selectedCategories: newCategories);
+                          });
+                        },
+                        backgroundColor: AppTheme.surfaceColor,
+                        selectedColor: AppTheme.primaryGreen,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          fontSize: 12,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 24),
+
+                  // Rating Section
+                  _buildSectionTitle('Minimum Rating', Icons.star),
+                  const SizedBox(height: 12),
+                  _buildRatingSection(),
+
+                  // Distance Section (only if location available)
+                  if (widget.hasLocation) ...[
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Distance', Icons.location_on),
+                    const SizedBox(height: 12),
+                    _buildDistanceSection(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // Apply Button
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  widget.onApply(_filterState);
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  _filterState.hasActiveFilters
+                      ? 'Apply Filters (${_filterState.activeFilterCount})'
+                      : 'Apply Filters',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppTheme.primaryGreen),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.primaryGreen,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRatingSection() {
+    final ratings = [
+      {'value': 5, 'label': '5⭐ Only'},
+      {'value': 4, 'label': '4⭐ & Above'},
+      {'value': 3, 'label': '3⭐ & Above'},
+      {'value': 2, 'label': '2⭐ & Above'},
+    ];
+
+    return Column(
+      children: [
+        ...ratings.map((rating) {
+          final value = rating['value'] as int;
+          final label = rating['label'] as String;
+          return RadioListTile<int>(
+            value: value,
+            groupValue: _filterState.minRating,
+            onChanged: (selected) {
+              setState(() {
+                _filterState = _filterState.copyWith(minRating: selected);
+              });
+            },
+            title: Text(label),
+            activeColor: AppTheme.primaryGreen,
+          );
+        }).toList(),
+        RadioListTile<int?>(
+          value: null,
+          groupValue: _filterState.minRating,
+          onChanged: (selected) {
+            setState(() {
+              _filterState = _filterState.copyWith(clearMinRating: true);
+            });
+          },
+          title: const Text('All Ratings'),
+          activeColor: AppTheme.primaryGreen,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDistanceSection() {
+    final distances = [
+      {'value': 1.0, 'label': '1 km'},
+      {'value': 5.0, 'label': '5 km'},
+      {'value': 10.0, 'label': '10 km'},
+    ];
+
+    return Column(
+      children: [
+        ...distances.map((distance) {
+          final value = distance['value'] as double;
+          final label = distance['label'] as String;
+          return RadioListTile<double>(
+            value: value,
+            groupValue: _filterState.maxDistance,
+            onChanged: (selected) {
+              setState(() {
+                _filterState = _filterState.copyWith(maxDistance: selected);
+              });
+            },
+            title: Text('Within $label'),
+            activeColor: AppTheme.primaryGreen,
+          );
+        }).toList(),
+        RadioListTile<double?>(
+          value: null,
+          groupValue: _filterState.maxDistance,
+          onChanged: (selected) {
+            setState(() {
+              _filterState = _filterState.copyWith(clearMaxDistance: true);
+            });
+          },
+          title: const Text('Any Distance'),
+          activeColor: AppTheme.primaryGreen,
+        ),
+      ],
     );
   }
 }

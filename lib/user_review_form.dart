@@ -27,7 +27,6 @@ class _UserReviewFormState extends State<UserReviewForm> {
   // ==================== FORM STATE ====================
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _reviewController = TextEditingController();
   
   double _rating = 3.0;
@@ -42,7 +41,6 @@ class _UserReviewFormState extends State<UserReviewForm> {
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
     _reviewController.dispose();
     super.dispose();
   }
@@ -64,13 +62,11 @@ class _UserReviewFormState extends State<UserReviewForm> {
           final data = userDoc.data() as Map<String, dynamic>;
           setState(() {
             _nameController.text = data['name'] ?? user.displayName ?? '';
-            _emailController.text = data['email'] ?? user.email ?? '';
           });
         } else {
           // Fallback to Firebase Auth data
           setState(() {
             _nameController.text = user.displayName ?? '';
-            _emailController.text = user.email ?? '';
           });
         }
         
@@ -109,6 +105,58 @@ class _UserReviewFormState extends State<UserReviewForm> {
         debugPrint('Error checking existing review: $e');
       }
       return false;
+    }
+  }
+
+  // ==================== UPDATE BUSINESS RATING ====================
+  Future<void> _updateBusinessRating(String businessId) async {
+    try {
+      // Get all reviews for this business
+      final reviewsSnapshot = await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(businessId)
+          .collection(AppConfig.reviewsSubcollection)
+          .get();
+
+      if (reviewsSnapshot.docs.isEmpty) {
+        // No reviews, set to 0
+        await _firestore
+            .collection(AppConfig.businessesCollection)
+            .doc(businessId)
+            .update({
+          'avgRating': 0.0,
+          'reviewCount': 0,
+        });
+        return;
+      }
+
+      // Calculate average rating
+      double totalRating = 0;
+      for (var doc in reviewsSnapshot.docs) {
+        final data = doc.data();
+        totalRating += (data['rating'] ?? 0).toDouble();
+      }
+
+      final avgRating = totalRating / reviewsSnapshot.docs.length;
+      final reviewCount = reviewsSnapshot.docs.length;
+
+      // Update business document
+      await _firestore
+          .collection(AppConfig.businessesCollection)
+          .doc(businessId)
+          .update({
+        'avgRating': avgRating,
+        'reviewCount': reviewCount,
+      });
+
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✓ Updated avgRating: ${avgRating.toStringAsFixed(2)}, reviewCount: $reviewCount');
+      }
+    } catch (e) {
+      if (AppConfig.enableDebugMode) {
+        debugPrint('✗ Error updating business rating: $e');
+      }
+      // Don't throw error - allow review submission to complete
     }
   }
 
@@ -189,19 +237,41 @@ class _UserReviewFormState extends State<UserReviewForm> {
     setState(() => _isSubmitting = true);
 
     try {
+      // Get user's name from users collection
+      String reviewerName = _nameController.text.trim();
+      
+      try {
+        final userDoc = await _firestore
+            .collection(AppConfig.usersCollection)
+            .doc(user.uid)
+            .get();
+        
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          reviewerName = userData['name'] ?? reviewerName;
+        }
+      } catch (e) {
+        if (AppConfig.enableDebugMode) {
+          debugPrint('Warning: Could not fetch user data from Firestore: $e');
+        }
+      }
+
+      // Add the review to subcollection
       await _firestore
           .collection(AppConfig.businessesCollection)
           .doc(widget.establishmentId)
           .collection(AppConfig.reviewsSubcollection)
           .add({
         'userId': user.uid,
-        'reviewerName': _nameController.text.trim(),
-        'reviewerEmail': _emailController.text.trim(),
+        'reviewerName': reviewerName,
         'rating': _rating,
         'comment': _reviewController.text.trim(),
         'timestamp': FieldValue.serverTimestamp(),
         'isReported': false,
       });
+
+      // Calculate new avgRating and reviewCount
+      await _updateBusinessRating(widget.establishmentId);
 
       if (!mounted) return;
 
@@ -370,7 +440,7 @@ class _UserReviewFormState extends State<UserReviewForm> {
               _buildRatingStars(),
               const SizedBox(height: 32),
 
-              // Name Field
+              // Name Field (Read-only for authenticated users)
               Text(
                 'Your Name',
                 style: AppTheme.titleSmall,
@@ -378,40 +448,19 @@ class _UserReviewFormState extends State<UserReviewForm> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Enter your name',
-                  prefixIcon: Icon(Icons.person),
+                  prefixIcon: const Icon(Icons.person),
+                  filled: !isAuthenticated,
+                  fillColor: isAuthenticated ? Colors.grey[100] : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                enabled: isAuthenticated,
+                readOnly: isAuthenticated,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter your name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Email Field
-              Text(
-                'Your Email',
-                style: AppTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  hintText: 'Enter your email',
-                  prefixIcon: Icon(Icons.email),
-                ),
-                enabled: isAuthenticated,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  if (!value.contains('@')) {
-                    return 'Please enter a valid email';
                   }
                   return null;
                 },
@@ -436,8 +485,8 @@ class _UserReviewFormState extends State<UserReviewForm> {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please write your review';
                   }
-                  if (value.trim().length < 10) {
-                    return 'Review must be at least 10 characters';
+                  if (value.trim().length < 5) {
+                    return 'Review must be at least 5 characters';
                   }
                   return null;
                 },

@@ -8,6 +8,10 @@ import 'package:image_picker/image_picker.dart';
 import 'config/app_config.dart';
 import 'config/app_theme.dart';
 import 'bookmarks_page.dart';
+import 'terms_page.dart';
+import 'privacy_page.dart';
+import 'report_page.dart';
+import 'about_page.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -307,6 +311,108 @@ class _UserProfilePageState extends State<UserProfilePage> {
             ),
         ],
       ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreen,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Menu',
+                    style: AppTheme.headingMedium.copyWith(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.description),
+              title: const Text('Terms of Use'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TermsPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip),
+              title: const Text('Privacy Policy'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PrivacyPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_problem),
+              title: const Text('Report a Problem'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ReportPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info),
+              title: const Text('About'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AboutPage()),
+                );
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.logout, color: AppTheme.errorRed),
+              title: Text(
+                'Sign Out',
+                style: TextStyle(color: AppTheme.errorRed, fontWeight: FontWeight.w600),
+              ),
+              onTap: () async {
+                Navigator.pop(context); // Close drawer
+                final shouldSignOut = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Sign Out'),
+                    content: const Text('Are you sure you want to sign out?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
+                        child: const Text('Sign Out'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldSignOut == true) {
+                  await _auth.signOut();
+                  if (!mounted) return;
+                  Navigator.of(context).pushReplacementNamed('/');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -316,8 +422,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
             _buildStatsCards(),
             const SizedBox(height: 24),
             _buildProfileInfo(user),
-            const SizedBox(height: 24),
-            _buildSignOutButton(),
           ],
         ),
       ),

@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'map_location_picker_page.dart';
 
 // Import our config and theme
 import 'config/app_config.dart';
@@ -50,6 +52,11 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
   final TextEditingController _restaurantNameController = TextEditingController();
   final TextEditingController _restaurantAddressController = TextEditingController();
 
+  // Social Media Links (optional)
+  final TextEditingController _facebookController = TextEditingController();
+  final TextEditingController _instagramController = TextEditingController();
+  final TextEditingController _websiteController = TextEditingController();
+
   // ==================== STATE VARIABLES ====================
   
   /// Are we showing login or sign-up form?
@@ -76,6 +83,10 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
   File? _selectedLogo;
   bool _isUploadingLogo = false;
   String? _uploadedLogoUrl;
+
+  // ==================== MAP LOCATION STATE VARIABLES ====================
+  Map<String, dynamic>? _selectedMapLocation; // Stores the selected location
+  bool _locationSelectedFromMap = false; // Tracks if location was picked from map
   
   /// List of available business categories
   static const List<String> _businessCategories = [
@@ -105,6 +116,10 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
     _confirmPasswordController.dispose();
     _restaurantNameController.dispose();
     _restaurantAddressController.dispose();
+    // Dispose social media controllers
+    _facebookController.dispose();
+    _instagramController.dispose();
+    _websiteController.dispose();
     super.dispose();
   }
 
@@ -394,10 +409,20 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
       }
 
       if (!mounted) return;
-      Navigator.pushReplacement(
+      
+      // 🔧 FIX: Use push instead of pushReplacement
+      // Keeps the previous page (explore) in the navigation stack so
+      // logout from dashboard can return to it.
+      await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const BusinessDashboardPage()),
       );
+      
+      // After returning from dashboard (for example after logout), remove
+      // the auth page so the user lands back on the previous screen.
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
       
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -467,11 +492,23 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
       'businessAddress': _restaurantAddressController.text.trim(),
       'businessType': _businessType,
       'logoUrl': logoUrl,
+      'coverImageUrl': null, // ← NEW: Cover image (can be added later)
       
       // Location Data
       'latitude': _businessLocation?.latitude,
       'longitude': _businessLocation?.longitude,
       'hasLocation': _businessLocation != null,
+
+      // Social Media Links (Optional)
+      'facebookUrl': _facebookController.text.trim().isNotEmpty
+          ? _facebookController.text.trim()
+          : null,
+      'instagramUrl': _instagramController.text.trim().isNotEmpty
+          ? _instagramController.text.trim()
+          : null,
+      'websiteUrl': _websiteController.text.trim().isNotEmpty
+          ? _websiteController.text.trim()
+          : null,
       
       // Status and Timestamps
       'approvalStatus': AppConfig.requireBusinessApproval ? 'pending' : 'approved',
@@ -502,14 +539,12 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
 
   // ==================== UI BUILD METHOD ====================
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(_isLogin ? 'Business Login' : 'Create Business Account'),
-      ),
-      body: Center(
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: AppTheme.surfaceColor,
+    body: SafeArea(
+      child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Form(
@@ -518,61 +553,152 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                if (_isLogin) ...[
-                  Image.asset('assets/logo.png', height: 100),
-                  const SizedBox(height: 24),
-                ],
+                // Modern Header Section
+                _buildModernHeader(),
+                const SizedBox(height: 40),
 
-                Text(
-                  _isLogin ? 'Welcome Back!' : 'Create Business Account',
-                  style: AppTheme.headingLarge.copyWith(
-                    color: AppTheme.primaryGreen,
+                // Main Content Card
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      children: [
+                        if (_errorMessage.isNotEmpty) ...[
+                          _buildErrorMessage(),
+                          const SizedBox(height: 16),
+                        ],
+
+                        if (!_isLogin) ...[
+                          _buildLogoUploadSection(),
+                          const SizedBox(height: 24),
+                          _buildSignUpFields(),
+                        ] else ...[
+                          _buildLoginFields(),
+                        ],
+
+                        const SizedBox(height: 24),
+                        _buildSubmitButton(),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 24),
-
-                if (_errorMessage.isNotEmpty) _buildErrorMessage(),
-
-                if (!_isLogin) ...[
-                  _buildLogoUploadSection(),
-                  const SizedBox(height: 24),
-                  _buildSignUpFields(),
-                ] else ...[
-                  _buildLoginFields(),
-                ],
 
                 const SizedBox(height: 24),
-                _buildSubmitButton(),
-                const SizedBox(height: 16),
                 _buildToggleButton(),
+                
+                // Optional: Back to browse button for login screen
+                if (_isLogin) ...[
+                  const SizedBox(height: 12),
+                  _buildBackToBrowseButton(),
+                ],
               ],
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+// ==================== MODERN HEADER ====================
+
+Widget _buildModernHeader() {
+  return Column(
+    children: [
+      // Logo or Icon
+      Container(
+        height: 80,
+        width: 80,
+        decoration: BoxDecoration(
+          color: AppTheme.primaryGreen,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryGreen.withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.restaurant_menu,
+          size: 40,
+          color: Colors.white,
+        ),
+      ),
+      const SizedBox(height: 24),
+      
+      // Title
+      Text(
+        _isLogin ? 'Welcome Back!' : 'Create Business Account',
+        style: TextStyle( // removed `const` to avoid const-evaluation issues
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.primaryGreen,
+          letterSpacing: -0.5,
+        ),
+        textAlign: TextAlign.center,
+      ),
+      const SizedBox(height: 8),
+      
+      // Subtitle
+      Text(
+        _isLogin 
+            ? 'Sign in to manage your restaurant' 
+            : 'Join MamFood Hub today',
+        style: TextStyle(
+          fontSize: 15,
+          color: AppTheme.textSecondary,
+          fontWeight: FontWeight.w400,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    ],
+  );
+}
 
   // ==================== UI COMPONENTS ====================
 
+  // REPLACED: modern error message design
   Widget _buildErrorMessage() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: AppTheme.errorRed.withOpacity(0.1),
+        color: AppTheme.errorRed.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(color: AppTheme.errorRed),
+        border: Border.all(
+          color: AppTheme.errorRed.withOpacity(0.3),
+          width: 1,
+        ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.error_outline, color: AppTheme.errorRed),
+          Icon(
+            Icons.error_outline_rounded,
+            color: AppTheme.errorRed,
+            size: 22,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _errorMessage,
-              style: TextStyle(color: AppTheme.errorRed),
+              style: TextStyle(
+                color: AppTheme.errorRed,
+                fontSize: 14,
+                height: 1.4,
+              ),
             ),
           ),
         ],
@@ -730,6 +856,7 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
         ),
         const SizedBox(height: 16),
 
+        // ---- FIXED: replaced stray semicolon with comma so SizedBox is kept in children ----
         _buildTextField(
           controller: _phoneNumberController,
           label: 'Phone Number',
@@ -742,7 +869,7 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
             }
             return null;
           },
-        ),
+        ), // <- was ';' which broke the widget tree
         const SizedBox(height: 16),
 
         _buildTextField(
@@ -837,6 +964,77 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
 
         // Location Capture Section
         _buildLocationCaptureSection(),
+
+        // ==================== SOCIAL MEDIA LINKS (OPTIONAL) ====================
+        const SizedBox(height: 24),
+
+        // Social Media Links Section (Optional)
+        Text(
+          'Social Media (Optional)',
+          style: AppTheme.headingSmall.copyWith(
+            color: AppTheme.primaryGreen,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Add your social media links to help customers find you',
+          style: AppTheme.bodySmall.copyWith(
+            color: AppTheme.textSecondary,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        _buildTextField(
+          controller: _facebookController,
+          label: 'Facebook Page',
+          hint: 'https://facebook.com/yourpage',
+          icon: Icons.facebook,
+          keyboardType: TextInputType.url,
+          validator: (value) {
+            if (value != null && value.isNotEmpty) {
+              if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                return 'URL must start with http:// or https://';
+              }
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+
+        _buildTextField(
+          controller: _instagramController,
+          label: 'Instagram Profile',
+          hint: 'https://instagram.com/yourprofile',
+          icon: Icons.camera_alt,
+          keyboardType: TextInputType.url,
+          validator: (value) {
+            if (value != null && value.isNotEmpty) {
+              if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                return 'URL must start with http:// or https://';
+              }
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+
+        _buildTextField(
+          controller: _websiteController,
+          label: 'Website',
+          hint: 'https://yourwebsite.com',
+          icon: Icons.language,
+          keyboardType: TextInputType.url,
+          validator: (value) {
+            if (value != null && value.isNotEmpty) {
+              if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                return 'URL must start with http:// or https://';
+              }
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
@@ -876,27 +1074,57 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-    bool isPassword = false,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      obscureText: isPassword,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppTheme.primaryGreen),
+ Widget _buildTextField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  required IconData icon,
+  TextInputType keyboardType = TextInputType.text,
+  bool isPassword = false,
+  String? Function(String?)? validator,
+}) {
+  return TextFormField(
+    controller: controller,
+    keyboardType: keyboardType,
+    obscureText: isPassword,
+    style: const TextStyle(fontSize: 15),
+    decoration: InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: AppTheme.primaryGreen, size: 22),
+      
+      // Modern filled style
+      filled: true,
+      fillColor: AppTheme.surfaceColor,
+      
+      // Border styling
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
-      validator: validator,
-    );
-  }
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppTheme.primaryGreen, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppTheme.errorRed, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppTheme.errorRed, width: 2),
+      ),
+      
+      // Content padding
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    ),
+    validator: validator,
+  );
+}
 
   Widget _buildBusinessTypeDropdown() {
     return DropdownButtonFormField<String>(
@@ -936,11 +1164,12 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Section Header
             Row(
               children: [
                 Icon(
                   Icons.location_on,
-                  color: AppTheme.primaryGreen,
+                  color: _businessLocation != null ? AppTheme.successGreen : Colors.grey,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -961,61 +1190,94 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
             ),
             const SizedBox(height: 16),
 
-            // Location status
-            if (_businessLocation != null)
+            // Location Status Display
+            if (_locationSelectedFromMap && _selectedMapLocation != null)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.secondaryGreen.withOpacity(0.1),
+                  color: AppTheme.successGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.secondaryGreen),
+                  border: Border.all(
+                    color: AppTheme.successGreen,
+                    width: 1,
+                  ),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle, color: AppTheme.secondaryGreen),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Location Captured',
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: AppTheme.successGreen,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Location Selected',
                             style: TextStyle(
-                              color: AppTheme.secondaryGreen,
+                              color: AppTheme.successGreen,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Text(
-                            'Lat: ${_businessLocation!.latitude.toStringAsFixed(6)}\nLon: ${_businessLocation!.longitude.toStringAsFixed(6)}',
-                            style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _selectedMapLocation!['address'] ?? 'Mambusao, Capiz',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Lat: ${_businessLocation!.latitude.toStringAsFixed(6)}, Long: ${_businessLocation!.longitude.toStringAsFixed(6)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
                 ),
               )
-            else if (_locationError != null)
+            else if (_businessLocation != null)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentYellow.withOpacity(0.1),
+                  color: AppTheme.successGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.accentYellow),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning, color: AppTheme.accentYellow),
-                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.check_circle,
+                      color: AppTheme.successGreen,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        _locationError!,
-                        style: TextStyle(
-                          color: AppTheme.accentYellow,
-                          fontSize: 12,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Location Captured via GPS',
+                            style: TextStyle(
+                              color: AppTheme.successGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Lat: ${_businessLocation!.latitude.toStringAsFixed(6)}, Long: ${_businessLocation!.longitude.toStringAsFixed(6)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1025,19 +1287,22 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.grey[600]),
-                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Location not captured yet',
+                        'Please select your business location',
                         style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
+                          color: Colors.orange[800],
                         ),
                       ),
                     ),
@@ -1047,38 +1312,45 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
 
             const SizedBox(height: 16),
 
-            // Capture button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isGettingLocation ? null : _captureLocation,
-                icon: _isGettingLocation
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Icon(
-                        _businessLocation != null
-                            ? Icons.refresh
-                            : Icons.my_location,
-                      ),
-                label: Text(
-                  _isGettingLocation
-                      ? 'Getting Location...'
-                      : _businessLocation != null
-                          ? 'Recapture Location'
-                          : 'Capture Location',
+            // Location Action Buttons
+            Row(
+              children: [
+                // GPS Capture Button
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isGettingLocation ? null : _captureLocation,
+                    icon: _isGettingLocation
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.my_location),
+                    label: Text(_isGettingLocation ? 'Getting...' : 'Use GPS'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryGreen,
+                      side: const BorderSide(color: AppTheme.primaryGreen),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _businessLocation != null
-                      ? AppTheme.secondaryGreen
-                      : AppTheme.primaryGreen,
+                const SizedBox(width: 12),
+                // Map Picker Button
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _chooseLocationOnMap,
+                    icon: const Icon(Icons.map),
+                    label: Text(_locationSelectedFromMap ? 'Change Location' : 'Choose on Map'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -1086,54 +1358,234 @@ class BusinessAuthPageState extends State<BusinessAuthPage> {
     );
   }
 
+ /// Open map to manually select location
+Future<void> _chooseLocationOnMap() async {
+  try {
+    // Prepare initial location for map picker
+    LatLng? initialLocation;
+    
+    if (_selectedMapLocation != null) {
+      // User already picked a location in this session - use it
+      initialLocation = LatLng(
+        _selectedMapLocation!['latitude'],
+        _selectedMapLocation!['longitude'],
+      );
+      
+      if (AppConfig.enableDebugMode) {
+        debugPrint('📍 Opening map with previously selected location:');
+        debugPrint('   Lat: ${initialLocation.latitude}');
+        debugPrint('   Long: ${initialLocation.longitude}');
+      }
+    } else if (_businessLocation != null) {
+      // User captured location via GPS - use it
+      initialLocation = LatLng(
+        _businessLocation!.latitude,
+        _businessLocation!.longitude,
+      );
+      
+      if (AppConfig.enableDebugMode) {
+        debugPrint('📍 Opening map with GPS-captured location:');
+        debugPrint('   Lat: ${initialLocation.latitude}');
+        debugPrint('   Long: ${initialLocation.longitude}');
+      }
+    } else {
+      // No previous location - will use default Mambusao center
+      if (AppConfig.enableDebugMode) {
+        debugPrint('📍 Opening map with default location (Mambusao center)');
+      }
+    }
+
+    // Open map with initial location
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapLocationPickerPage(
+          initialLocation: initialLocation,
+        ),
+      ),
+    );
+
+    if (result != null && result is Map<String, dynamic>) {
+      setState(() {
+        // Save the selected location
+        _selectedMapLocation = result;
+        _locationSelectedFromMap = true;
+        
+        // Update the existing Position object for Firebase
+        _businessLocation = Position(
+          latitude: result['latitude'],
+          longitude: result['longitude'],
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          isMocked: false,
+        );
+        _locationError = null;
+        
+        if (AppConfig.enableDebugMode) {
+          debugPrint('✓ Location selected from map:');
+          debugPrint('  Latitude: ${result['latitude']}');
+          debugPrint('  Longitude: ${result['longitude']}');
+          debugPrint('  Address: ${result['address']}');
+        }
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location selected: ${result['address'] ?? "Mambusao, Capiz"}'),
+            backgroundColor: AppTheme.successGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    if (AppConfig.enableDebugMode) {
+      debugPrint('✗ Error opening map picker: $e');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error opening map: $e'),
+          backgroundColor: AppTheme.errorRed,
+        ),
+      );
+    }
+  }
+}
+  // REPLACED: modern gradient submit button
   Widget _buildSubmitButton() {
-    return ElevatedButton(
-      onPressed: _isLoading ? null : _handleAuth,
-      child: _isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppTheme.primaryGreen, AppTheme.secondaryGreen],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryGreen.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleAuth,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                _isLogin ? 'Sign In' : 'Create Account',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
               ),
-            )
-          : Text(
-              _isLogin ? 'Login' : 'Create Account',
-              style: const TextStyle(fontSize: 16),
-            ),
+      ),
     );
   }
 
+  // REPLACED: modern toggle button with RichText
   Widget _buildToggleButton() {
-    return TextButton(
-      onPressed: _isLoading
-          ? null
-          : () {
-              setState(() {
-                _isLogin = !_isLogin;
-                _errorMessage = '';
-                _passwordStrengthMessage = null;
-                _formKey.currentState?.reset();
-                
-                _emailController.clear();
-                _passwordController.clear();
-                _fullNameController.clear();
-                _phoneNumberController.clear();
-                _confirmPasswordController.clear();
-                _restaurantNameController.clear();
-                _restaurantAddressController.clear();
-                _businessType = null;
-                _businessLocation = null;
-                _locationError = null;
-                _selectedLogo = null;
-                _uploadedLogoUrl = null;
-              });
-            },
-      child: Text(
-        _isLogin
-            ? 'Don\'t have an account? Sign Up'
-            : 'Already have an account? Login',
+    return Center(
+      child: TextButton(
+        onPressed: _isLoading
+            ? null
+            : () {
+                setState(() {
+                  _isLogin = !_isLogin;
+                  _errorMessage = '';
+                  _passwordStrengthMessage = null;
+                  _formKey.currentState?.reset();
+
+                  _emailController.clear();
+                  _passwordController.clear();
+                  _fullNameController.clear();
+                  _phoneNumberController.clear();
+                  _confirmPasswordController.clear();
+                  _restaurantNameController.clear();
+                  _restaurantAddressController.clear();
+                 // Clear social media fields when toggling forms
+                  _facebookController.clear();
+                  _instagramController.clear();
+                  _websiteController.clear();
+                  _businessType = null;
+                  _businessLocation = null;
+                  _locationError = null;
+                  _selectedLogo = null;
+                  _uploadedLogoUrl = null;
+                });
+              },
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        child: RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+            ),
+            children: [
+              TextSpan(
+                text: _isLogin ? 'Don\'t have an account? ' : 'Already have an account? ',
+              ),
+              TextSpan(
+                text: _isLogin ? 'Sign Up' : 'Sign In',
+                style: TextStyle(
+                  color: AppTheme.primaryGreen,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // NEW: Back to browse button
+  Widget _buildBackToBrowseButton() {
+    return Center(
+      child: TextButton.icon(
+        onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+        icon: Icon(
+          Icons.arrow_back,
+          size: 18,
+          color: AppTheme.textSecondary,
+        ),
+        label: Text(
+          'Back to Browse',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppTheme.textSecondary,
+          ),
+        ),
       ),
     );
   }

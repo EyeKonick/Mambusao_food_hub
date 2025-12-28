@@ -50,11 +50,11 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDXqpZc8W3Tl-XAcQ6VU9_sqyFdEkOpBt0',
-    appId: '1:873603815277:android:24e9c7989ad605fd28ac64',
-    messagingSenderId: '873603815277',
-    projectId: 'mambusao-food-hub',
-    storageBucket: 'mambusao-food-hub.firebasestorage.app',
+    apiKey: 'AIzaSyAvAfdt3FHbIiIiF4GIYCutqLB-CIwxE_I',
+    appId: '1:553464954192:android:89d176c0cf36036bd94055',
+    messagingSenderId: '553464954192',
+    projectId: 'mambusao-food-hub-v2',
+    storageBucket: 'mambusao-food-hub-v2.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
